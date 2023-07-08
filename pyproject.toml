@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "sunhaven-ripper"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+packages = [{include = "sunhaven_ripper"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+reactivex = "^4.0.4"
+rx = "^3.2.0"
+pyinstaller = "^5.13.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
