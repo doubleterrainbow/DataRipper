@@ -2,8 +2,8 @@
 import json
 import logging
 from typing import List
-from .SunHaven_DropTable import EntityWithDrops
-from .SunHaven_DropTable import Drop
+
+from DesktopApp.Modules.entity_with_drops import Drop, EntityWithDrops
     
 class Animal(EntityWithDrops):
     def __init__(self):

@@ -9,9 +9,10 @@ from DesktopApp.datum import Datum
 from DesktopApp.progress import Progress
 
 class AssetsParser:
-    def __init__(self, csvPath, xmlPath, on_progress_updated) -> None:
+    def __init__(self, csvPath, xmlPath, references_path, on_progress_updated) -> None:
         self.csvPath = csvPath
         self.xmlPath = xmlPath
+        self.references_path = references_path
         
         self.on_progress_updated = on_progress_updated
 
@@ -57,11 +58,58 @@ class AssetsParser:
                         break
 
             
-            logging.debug("-|")
-            
             toc = time.perf_counter()
             logging.debug(f"Parsed Asset.csv in {toc - tic:0.4f} seconds")
             self.on_progress_updated(Progress("Done looking at assets, for now..."))
+
+            return datumList
+        
+
+    def csvParseReferenceFile(self, datumList):
+        tic = time.perf_counter()
+
+        # Opening csv
+        logging.debug('Opening Asset Database')
+        self.on_progress_updated(Progress("Reading from assets..."))
+        
+        # Counting lines in the file for keeping track of progress
+        references_csv = open(self.references_path, 'r')
+        
+        lineCount = sum(1 for line in references_csv)
+        incAmt = math.ceil(lineCount / 20)
+        
+        # Now actually reading the file
+        with open(self.references_path, 'r') as references_csv:
+            datumList.sort(key=operator.attrgetter('pID'))
+
+            logging.debug("Parsing Reference Database")
+            # all items data
+            count = 0
+            idx = 0
+            for line in references_csv:
+                count += 1
+                if count >= incAmt:
+                    count = 0
+                    self.on_progress_updated(Progress(f"Looked at {count}/{lineCount} stored references"))
+                    logging.debug(f"{count}/{lineCount}")
+                
+                values = line.split(',')
+                pID = values[0]
+                gID = values[1]
+                name = values[2].rstrip()
+
+                for i in range(idx, len(datumList)):
+                    if datumList[i].pID == pID:
+                        datumList[i].gID = gID
+                        datumList[i].name = name
+                    # elif datumList[i].pID > pID:
+                    #     idx = i
+                    #     break
+
+            
+            toc = time.perf_counter()
+            logging.debug(f"Parsed references.csv in {toc - tic:0.4f} seconds")
+            self.on_progress_updated(Progress("Done looking at references..."))
 
             return datumList
         
@@ -115,9 +163,9 @@ class AssetsParser:
                                 datumList[i].item_candidates.append(Datum(pID, gID, name))
                         except: 
                             pass
-                    # elif datumList[i].pID > pID:
-                        # idx = i
-                        # break
+                    elif datumList[i].pID > pID:
+                        idx = i
+                        break
 
             
             logging.debug("-|")
@@ -130,6 +178,10 @@ class AssetsParser:
 
     def csvParseMetadataFile(self, srcPath):
         tic = time.perf_counter()
+        
+        if not os.path.exists(srcPath):
+            f = open(srcPath, 'w')
+            f.close()
 
         files = []
         f = open(srcPath, "r")

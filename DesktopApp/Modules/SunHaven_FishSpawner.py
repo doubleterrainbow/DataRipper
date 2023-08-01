@@ -71,7 +71,7 @@ class FishSpawner:
         return result
     
     def _calculate_min_max_percents(self):
-        for season in ['Any', 'Spring', 'Summer', 'Fall', 'Winter']:
+        for season in ['All', 'Spring', 'Summer', 'Fall', 'Winter']:
             seasonal_drops = [drop for drop in self.drops if drop.season == season]
             
             min_percents = self._calculate_percentages(seasonal_drops, level=1)
@@ -132,7 +132,7 @@ def getFishSpawner(jsonPath) -> FishSpawner:
     for i in data['fish']['drops']:
         spawner.drops.append(
             FishSpawnable(str(i['fish']['m_PathID']), -1, '',
-            float(i['dropChance']), 'Any')
+            float(i['dropChance']), 'All')
         )
 
     if data['hasSeasonalFish']:

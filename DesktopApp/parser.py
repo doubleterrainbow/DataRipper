@@ -18,7 +18,8 @@ class Parser:
                 data_path,
                 code_path,
                 output_path, 
-                on_progress_update
+                on_progress_update, 
+                skip_setup=False
                 ) -> None:
         self.gameVersion = game_version
         
@@ -29,18 +30,21 @@ class Parser:
 
         self.xmlPath = f'{data_path}/assets.xml'
         self.csvPath = f'{data_path}/assets.csv'
-        self.assets_parser = AssetsParser(self.csvPath, self.xmlPath, on_progress_update)
+        self.refPath = f'{data_path}/references.csv'
+        self.assets_parser = AssetsParser(self.csvPath, self.xmlPath, self.refPath, on_progress_update)
         
-        self.xml2csv(self.xmlPath, self.csvPath)
+        if not skip_setup:
+            self.xml2csv(self.xmlPath, self.csvPath, self.refPath)
 
         self.outputPath = output_path
         self.dstPath = os.path.join(output_path, game_version, 'fileTypes.csv')
         os.makedirs(os.path.join(output_path, game_version), exist_ok=True)
         
-        self.labelFiles(f"{data_path}/MonoBehaviour", self.dstPath)
+        if not skip_setup:
+            self.labelFiles(f"{data_path}/MonoBehaviour", self.dstPath)
 
     
-    def xml2csv(self, srcPath, dstPath):
+    def xml2csv(self, srcPath, assets_csv, references_path):
         logging.debug('Opening assets.xml')
         self.on_progress_update(Progress("Viewing GIGANTIC list of assets..."))
         tree = ET.parse(srcPath)
@@ -50,6 +54,7 @@ class Parser:
         increment = math.ceil(elementCount / 20)
 
         objList = []
+        references = []
 
         logging.debug("Parsing assets.xml")
         # all items data
@@ -63,6 +68,9 @@ class Parser:
                 count = 0
                 logging.debug(f"Scanned {total_processed}/{elementCount} assets...")
 
+            container = elem.find('Container')
+            is_progress_container = container is not None and container.text is not None and 'progress' in container.text
+
             pID = elem.find('PathID').text
             gID = ""
             name = ""
@@ -72,22 +80,30 @@ class Parser:
                 name = data[1]
             else:
                 name = data[0]
-            
+                
             if gID:
                 objList.append(Datum(pID, gID, name))
-            elif re.match("[A-Za-z]+FishSpawner.*", name) is not None:
-                objList.append(Datum(pID, "0", name))
+            
+            if re.match("[A-Za-z]+FishSpawner.*", name) is not None or \
+                is_progress_container or name.startswith('RecipeList_'):
+                references.append(Datum(pID, "0", name))
 
-        logging.debug("-|\nSorting")
+
+        logging.debug("\nSorting")
         objList.sort()
 
         logging.debug("Writing to Disk")
         
         os.makedirs(self.dataPath, exist_ok=True)
-        f = open(dstPath, "w")
+        f = open(assets_csv, "w")
         for obj in objList:
             f.write(str(obj) + '\n')
         f.close()
+        
+        with open(references_path, "w") as reference_file:
+            for obj in references:
+                reference_file.write(str(obj) + '\n')
+            reference_file.close()
         
     def labelFiles(self, srcPath, dstPath):
         def isFileType(f, types):
@@ -191,6 +207,8 @@ class Parser:
                             tags += ",museum bundle"
                         if 'interactiveText' in data and data['interactiveText'] == 'Bee Hive Box':
                             tags += ",beehive box"
+                        if 'bookName' in data:
+                            tags += ",book"
                         if 'text' in data and data['text']:
                             tags += ",readable"
                         if 'npc' in data and data['npc']:
@@ -203,20 +221,23 @@ class Parser:
                             tags += ",recipe"
                         if 'craftingRecipes' in data and data['craftingRecipes']:
                             tags += ",recipe list"
-                        if '_drops' in data and data['_drops'] and 'drops' in data['_drops'][0] and data['_drops'][0]['drops']:
+                        if ('_drops' in data and data['_drops'] and 'drops' in data['_drops'][0] and data['_drops'][0]['drops']) or \
+                            ('_foliage' in data and data['_foliage'] and 'drops' in data['_foliage']):
                             tags += ",drop table"
+                        if ('drops' in data and 'drops' in data['drops']):
+                            tags += ",destructible"
                         if 'fish' in data and data['fish'] and 'drops' in data['fish'] and data['fish']['drops']:
                             if 'large' in data:
                                 tags += ",fish net"
                             else:
                                 tags += ",fish spawner"
+                        if 'cropStages' in data:
+                            tags += ",seed"
 
                     except:
                         tags = ",unparseable"
 
                 label_file.write(filename + tags +'\n')
-
-        logging.debug("-|")
 
         toc = time.perf_counter()
         logging.debug(f"Read all files in {toc - tic:0.4f} seconds")

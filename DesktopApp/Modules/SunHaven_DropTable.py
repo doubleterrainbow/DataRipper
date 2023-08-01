@@ -1,37 +1,10 @@
 # import required module
 import json
 import logging
-from typing import List
+from DesktopApp.Modules.SunHaven_Animals import Animal
+from DesktopApp.Modules.entity_with_drops import Drop, EntityWithDrops
 
 from DesktopApp.datum import Datum
-
-class EntityWithDrops:
-    def __init__(self):
-        self.drops: List[Drop] = []
-        self.filename = ""
-        self.name = ""
-        
-    
-    def __str__(self):
-        ret = str(self.filename) + ": " + str(self.name) + '\n'
-        ret += ':Drops\n'
-        for item in self.drops:
-            ret += f"- {item}"
-        
-        return ret
-
-    def calculate_drop_percents(self):
-        if not self.drops:
-            return
-
-        max_drop_index = max([drop.dropGroupIndex for drop in self.drops])        
-        for i in range(1, max_drop_index + 1):
-            group = [drop for drop in self.drops if drop.dropGroupIndex == i]
-            total_weight = sum([drop.chance for drop in group])
-            
-            for drop in group:
-                drop.percent_chance = (drop.chance / total_weight) * 100 
-                
 
 class Enemy(EntityWithDrops):
     def __init__(self):
@@ -40,53 +13,32 @@ class Enemy(EntityWithDrops):
         self.experience = ""
         self.level = ""
         self.spawner = ""
+        self.defense = ""
+        self.flying = ""
+        self.ranged = False
 
     def __str__(self):
         original = super().__str__()
         
-        ret = original.split("\n")[0]
+        ret = original.split("\n")[0] + f" ({self.spawner})"
         ret += "\n:Details\n"
         ret += "- Level: " + str(self.level) + '\n'
         ret += "- Health: " + str(self.health) + '\n'
         ret += "- Exp: " + str(self.experience) + '\n'
+        ret += "- Defense: " + str(self.defense) + '\n'
+        ret += "- Flying: " + str(self.flying) + '\n'
+        ret += "- Ranged: " + str(self.flying) + '\n'
         
         ret += "\n".join([line for line in original.split("\n")[1:] if "Nothing" not in line])
         
         return ret
+    
+    def __eq__(self, __value: object) -> bool:
+        return self.name == __value.name and self.level == __value.level and self.spawner == __value.spawner
 
 class Item(EntityWithDrops):
     def __init__(self):
         super().__init__()
-
-class Drop(Datum):
-    def __init__(self, dropGroupIndex, pID, gID, name, chance, amount):
-        super().__init__(pID, gID, name)
-        self.dropGroupIndex = dropGroupIndex
-        self.chance = chance
-        self.amount = amount
-        self.percent_chance = 0.0
-        self.item_candidates = []
-        
-    def __str__(self):
-        x = 0
-        y = 0
-        if 'm_Y' in self.amount:
-            x = self.amount['m_X']
-            y = self.amount['m_Y']
-        elif 'y' in self.amount:
-            x = self.amount['y']
-            y = self.amount['x']
-        else:
-            logging.debug('Amount unknown: ' + self.amount)
-
-        if y == 0:
-            self.name = "Nothing"
-        
-        amount_str = str(x)
-        if x != y:
-            amount_str = f"{x}-{y}"
-            
-        return f"{amount_str} {self.name:<30} @ {self.chance:<5} => {round(self.percent_chance, 2)}%\n"
 
 def getDropTable(jsonPath):
     # Opening JSON file
@@ -95,9 +47,24 @@ def getDropTable(jsonPath):
 
     obj = {}
     
+    if '_foliage' in data:
+        drops = data['_foliage']['drops']
+        obj = Item()
+        obj.name = ""
+        
+        for i in drops:
+            obj.drops.append(
+                Drop(1, str(i['drop']['m_PathID']), -1, "", float(i['dropChance']), i['dropAmount'])
+            )
+    
+        try:
+            obj.calculate_drop_percents()
+        except Exception as e:
+            logging.error(f"Error calculating drop %s for foliage in {jsonPath}", exc_info=True)
+    
     # Iterating through the json list
-    if ('_drops' in data):
-        if (len(data['_drops']) > 0):
+    if '_drops' in data:
+        if data['_drops']:
             if 'enemyName' in data:
                 obj = Enemy()
                 obj.name = data['enemyName']
@@ -105,12 +72,19 @@ def getDropTable(jsonPath):
                 obj.health = str(data['_health'])
                 obj.experience = str(data['_experience'])
                 obj.level = str(data['_powerLevel'])
+                obj.defense = str(data['defense'])
+                obj.flying = str(data['flying'])
+                obj.ranged = "Monkey" in jsonPath
+            elif 'animalName' in data:
+                obj = Animal()
+                obj.name = data['animalName']
             elif obj == {}:
                 obj = Item()
                 obj.name = ""
 
             drop_index = 0
-            for d in (data['_drops']):
+            
+            for d in data['_drops']:
                 drop_index += 1
                 
                 for i in (d['drops']):

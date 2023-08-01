@@ -59,7 +59,7 @@ def getMerchant(jsonPath):
     # Opening JSON file
     f = open(jsonPath)
     data = json.load(f)
-
+    
     merchant = Merchant()
     
     # Iterating through the json list

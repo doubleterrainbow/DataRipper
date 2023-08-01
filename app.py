@@ -10,6 +10,7 @@ from DesktopApp.linker_registry import LinkerRegistry
 from DesktopApp.progress import Progress
 from DesktopApp.SunHaven_Linker import start_linking
 from DesktopApp.app_settings import AppSettings
+from scrollable_window import ScrolledFrame
 
 class SunHavenRipperApp:
     def __init__(self) -> None:          
@@ -21,22 +22,24 @@ class SunHavenRipperApp:
         self.window = tk.Tk(screenName="Sun Haven Data Ripper")
         self.window.title("Sun Haven Data Ripper")
         self.window.resizable = True
-        self.window.geometry("800x800")
+        self.window.geometry("600x400")
         
         # self.window.iconphoto(False, tk.PhotoImage(file='sh_ripper_icon.png'))
         
-        # scrollbar = tk.Scrollbar(self.window)
-        # scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-      
-        self.frame = tk.Frame(self.window, padx=10, pady=10, width=600.0)
-        self.frame.grid()
+        self.frame = ScrolledFrame(self.window)
+        self.frame.pack(expand=True, fill='both', padx=10, pady=10)
         
         self.settings = AppSettings()
         
         self.total_parsers = 10
         self.current_progress = 0
+        self.skip_setup_value = tk.IntVar()
+        
         self.status_label_text = tk.StringVar(value="Haven't Started Yet!")
         self.error_label_text = tk.StringVar(value="")
+        self.data_dir_label = tk.StringVar(value="Data Directory:")
+        self.code_dir_label = tk.StringVar(value="Code Directory:")
+        self.output_dir_label = tk.StringVar(value="Output Directory:")
       
     def has_cutscenes(self, directory_name) -> bool:
       return os.path.exists(f"{directory_name}\SunHaven.Core\Wish")
@@ -51,51 +54,58 @@ class SunHavenRipperApp:
         selected_dir = filedialog.askdirectory()
         
         if not self.has_assets_xml(selected_dir):
-          self.error_label_text = "- Could not find assets.xml in this directory.\n"
+          self.error_label_text.set("- Could not find assets.xml in this directory.\n")
         else:
           self.settings.data_dir = selected_dir
-          data_dir_label = tk.Label(self.frame, text=f"{selected_dir}")
-          data_dir_label.grid(column=3, row=1, sticky="W")      
+          self.data_dir_label.set(f"Data Directory: {selected_dir}")
           self.check_valid_files()
     
     def select_code_dir(self):
         selected_dir = filedialog.askdirectory()
+        if not selected_dir:
+          return
+        
         has_files = self.has_cutscenes(selected_dir)
         if not has_files:
-          self.error_label_text.set("- Could not find cutscenes files. (Expected to find a folder named \SunHaven.Core\Wish)")
+          self.error_label_text.set("- Could not find cutscenes files. \n(Expected to find a folder named \SunHaven.Core\Wish)")
           self.cutscene_checkbutton['state'] = tk.DISABLED
           self.checkbuttons["Cutscenes"].set(0)
 
         if has_files:
           self.cutscene_checkbutton['state'] = tk.NORMAL
           self.checkbuttons["Cutscenes"].set(1)
-          self.error_label_text.set("")
+          self.error_label_text.set("No Problems Found.")
           self.settings.code_dir = selected_dir
-          code_dir_label = tk.Label(self.frame, text=f"{selected_dir}")
-          code_dir_label.grid(column=3, row=3, sticky="W")      
+          self.code_dir_label.set(f"Code Directory: {selected_dir}")
           self.check_valid_files()
     
     def select_output_dir(self):
         selected_dir = filedialog.askdirectory()
 
         self.settings.output_dir = selected_dir
-        output_dir_label = tk.Label(self.frame, text=f"{selected_dir}")
-        output_dir_label.grid(column=3, row=7, sticky="W")
-                
+        self.output_dir_label.set(f"Output Directory: {selected_dir}")
         self.check_valid_files() 
   
     def check_valid_files(self):
         if self.has_required_files():
-            self.error_label_text.set("")
-            self.start_button = tk.Button(self.frame, text="Start", pady=5, command=self.begin_parsing_in_background)
-            self.start_button.grid(column=0, row=8, sticky="W")
+            self.error_label_text.set("No Problems Found.")
+            self.start_button = tk.Button(self.frame.inner, text="Start", pady=5, command=self.begin_parsing_in_background)
+            self.start_button.pack()
             
-            status_label = tk.Label(self.frame, textvariable=self.status_label_text, padx=3, pady=5)
-            status_label.grid(column=0, row=9, columnspan=3, sticky="W")
+            status_label = tk.Label(self.frame.inner, textvariable=self.status_label_text, padx=3, pady=5)
+            status_label.pack()
             self.set_current_task("This is gonna take a while...")
             
-            self.progress_bar = ttk.Progressbar(self.frame, length=400)
-            self.progress_bar.grid(column=0, row=10, columnspan=3)
+            self.progress_bar = ttk.Progressbar(self.frame.inner, length=400)
+            self.progress_bar.pack()
+            
+            self.skip_setup_checkbox = tk.Checkbutton(self.frame.inner, variable=self.skip_setup_value, text="Skip Reading Assets")
+            self.skip_setup_checkbox.pack()
+            
+            skip_setup_label = tk.Label(self.frame.inner, text="NOTE: only enable this if you are rerunning and reusing an output folder.\nOtherwise outputs will be empty.")
+            skip_setup_label.pack()
+            
+            self.frame.scroll_to_bottom()
         
     def set_current_task(self, task):
         self.status_label_text.set(task)
@@ -131,7 +141,13 @@ class SunHavenRipperApp:
     
     def parse_data(self):
         try:
-          version = self.version_text.get("1.0", "end").rstrip()
+          version = self.version_text.get("1.0", "end").strip()
+          version = self.version_text.get("1.0", "end").strip()
+          
+          logging.basicConfig(level=logging.DEBUG, 
+                              filename=os.path.join(self.settings.output_dir, version, "debug.log"))
+          
+          version = self.version_text.get("1.0", "end").strip()          
           
           logging.basicConfig(level=logging.DEBUG, 
                               filename=os.path.join(self.settings.output_dir, version, "debug.log"))
@@ -141,7 +157,8 @@ class SunHavenRipperApp:
             data_path=self.settings.data_dir,
             code_path=self.settings.code_dir,
             output_path=self.settings.output_dir,
-            on_progress_update=self.update_progress
+            on_progress_update=self.update_progress,
+            skip_setup=self.skip_setup_value.get() == 1
           )
           
           linkers = [key for key, value in self.checkbuttons.items() if value.get() == 1]
@@ -156,11 +173,11 @@ class SunHavenRipperApp:
           logging.error("Exception in parse_data", exc_info=True)
     
     def create_checkboxes(self):
-        checkbox_frame = tk.Frame(self.frame, borderwidth=1, relief="groove")
-        checkbox_frame.grid(pady=30)
+        checkbox_frame = tk.Frame(self.frame.inner, pady=5)
+        checkbox_frame.pack(anchor='w', expand=True)
         
-        checkboxes_label = tk.Label(checkbox_frame, text="Outputs:")
-        checkboxes_label.grid(column=0, row=len(checkbox_frame.children), sticky="W")
+        checkboxes_label = tk.Label(checkbox_frame, font=('Helvetica', 12, 'normal'), text="Outputs:")
+        checkboxes_label.pack(anchor='nw')
         
         for linker in LinkerRegistry.linkers:
             self.checkbuttons[linker.label] = tk.IntVar(value=1)
@@ -169,7 +186,7 @@ class SunHavenRipperApp:
                 self.cutscene_checkbutton = tk.Checkbutton(
                   checkbox_frame, text=linker.label, variable=self.checkbuttons[linker.label]
                 )
-                self.cutscene_checkbutton.grid(row=len(checkbox_frame.children), column=0, columnspan=2, sticky="W")
+                self.cutscene_checkbutton.pack(anchor='w')
                 
                 if not self.has_cutscenes(self.settings.code_dir):
                   self.checkbuttons[linker.label].set(0)
@@ -177,63 +194,76 @@ class SunHavenRipperApp:
                   self.error_label_text.set("Cannot link cutscenes without Code directory")
                 else:
                   self.cutscene_checkbutton['state'] = tk.NORMAL
-                  self.error_label_text.set("")
+                  self.error_label_text.set("No Problems Found.")
             else:
                 checkbutton = tk.Checkbutton(
                   checkbox_frame, text=linker.label, variable=self.checkbuttons[linker.label]
                 )
-                checkbutton.grid(row=len(checkbox_frame.children), column=0, columnspan=2, sticky="W")
+                checkbutton.pack(anchor='w')
               
 
     def start(self):
         """
-        | 1               | 2               | 3              |
-        | title           |                 |                | 0
-        | select data dir | data dir button | data dir label | 1
-        | error label     |                 |                | 2
-        | select code dir | code dir button | code dir label | 3
-        | error label     |                 |                | 4
-        | checkboxes      |                 |                | 5
-        | version label   |  version box    |                | 6
-        | select out dir  | out dir button  | out dir label  | 7
-        | start button    |                 |                | 8
-        | status label    |                 |                | 9
-        | progress        |                 |                | 10
+        | 1               | 2               | 3             |4|
+        | title           |                 |               | | 0
+        | select data dir | data dir button | data dir label| | 1
+        | error label     |                 |               | | 2
+        | select code dir | code dir button | code dir label| | 3
+        | error label     |                 |               | | 4
+        | checkboxes      |                 |               | | 5
+        | version label   |  version box    |               | | 6
+        | select out dir  | out dir button  | out dir label | | 7
+        | start button    |                 |               | | 8
+        | status label    |                 |               | | 9
+        | progress        |                 |               | | 10
         
         """
-        title = tk.Label(self.frame, text="").grid(column=0, row=0, columnspan=2)
+        title = tk.Label(self.frame.inner, text="").pack()
+
+        self.directories_frame = tk.Frame(self.frame.inner, pady=10)
+        self.directories_frame.pack(anchor='nw', expand=True, fill='both')
         
-        data_dir = tk.Label(self.frame, text="Data directory:")
-        data_dir.grid(column=0, row=1, sticky="W")
+        data_dir = tk.Label(self.directories_frame, font=('Helvetica', 12, 'normal'), textvariable=self.data_dir_label)
+        data_dir.pack(anchor='nw')
         
-        self.data_dir_button = tk.Button(self.frame, text="Select...", command=self.select_data_dir)
-        self.data_dir_button.grid(column=1, row=1)
+        data_dir_instruction = tk.Label(self.directories_frame, text="- Should contain all assets and an assets.xml file")
+        data_dir_instruction.pack(anchor='nw')
         
-        code_dir = tk.Label(self.frame, text="Code directory:")
-        code_dir.grid(column=0, row=3, sticky="W")
+        self.data_dir_button = tk.Button(self.directories_frame, text="Select...", command=self.select_data_dir)
+        self.data_dir_button.pack(anchor='nw')
         
-        self.code_dir_button = tk.Button(self.frame, text="Select...", command=self.select_code_dir)
-        self.code_dir_button.grid(column=1, row=3)
+        code_dir = tk.Label(self.directories_frame, font=('Helvetica', 12, 'normal'), textvariable=self.code_dir_label)
+        code_dir.pack(anchor='sw')
         
-        tk.Label(self.frame, textvariable=self.error_label_text, justify='left').grid(column=0, row=4, columnspan=2)
+        code_dir_instruction = tk.Label(self.directories_frame, text="- (optional) Should contain decompiled code, usually from DnSpy")
+        code_dir_instruction.pack(anchor='nw')
+        
+        self.code_dir_button = tk.Button(self.directories_frame, text="Select...", command=self.select_code_dir)
+        self.code_dir_button.pack(anchor='sw')
+        
+        tk.Label(self.frame.inner, textvariable=self.error_label_text, font=('Helvetica', 9, 'bold'), justify='left').pack(anchor='sw')
         
         self.create_checkboxes()
         
-        version_label = tk.Label(self.frame, text="Game Version:", pady=5)
-        version_label.grid(column=0, row=6, sticky="W")
+        version_label = tk.Label(self.frame.inner, text="Game Version:", font=('Helvetica', 12, 'normal'), pady=5)
+        version_label.pack(anchor='w')
         
-        self.version_text = tk.Text(self.frame, height=1, width=8, pady=5)
-        self.version_text.grid(column=1, row=6)
+        self.version_text = tk.Text(self.frame.inner, height=1, width=8, pady=5)
+        self.version_text.pack(anchor='w')
         
-        output_dir = tk.Label(self.frame, text="Output directory:", pady=5)
-        output_dir.grid(column=0, row=7, sticky="W")
+        output_dir = tk.Label(self.frame.inner, textvariable=self.output_dir_label, font=('Helvetica', 12, 'normal'), pady=5)
+        output_dir.pack(anchor='w')
         
-        self.output_dir_button = tk.Button(self.frame, text="Select...", command=self.select_output_dir)
-        self.output_dir_button.grid(column=1, row=7)
+        output_dir_instruction = tk.Label(self.frame.inner, text="- a folder named <Game Version> will be created inside this folder, where files will be written")
+        output_dir_instruction.pack(anchor='w')
+        
+        self.output_dir_button = tk.Button(self.frame.inner, text="Select...", command=self.select_output_dir)
+        self.output_dir_button.pack(anchor='w')
         
         self.window.mainloop()
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG, filename="sun_haven_ripper_debug.log")  
     app = SunHavenRipperApp()
     app.start()
   
