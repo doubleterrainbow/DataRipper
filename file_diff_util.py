@@ -4,7 +4,7 @@ import difflib
 
 if __name__ == '__main__':
     old_folder = "D:\\Documents\\Sun Haven Assets\\output\\full_1.2"
-    updated_folder = "D:\\Documents\\Sun Haven Assets\\output\\full_1.2_copy"
+    updated_folder = "D:\\Documents\\Sun Haven Assets\\output\\1.2.2"
     diff_folder = "D:\\Documents\\Sun Haven Assets\\output\\diffs"
     
     if not os.path.exists(diff_folder):

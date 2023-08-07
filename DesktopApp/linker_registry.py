@@ -8,20 +8,19 @@ class LinkerRegistry:
     linkers: List[LinkerFunction] = []
     
     @classmethod
-    def register(cls, *args):
+    def register(cls, *args, **kwargs):
         """
         Usage: 
         
-        @LinkerRegistry.register("Drop Tables", "drop table")
+        @LinkerRegistry.register("Drop Tables", [FileTags.DropTables])
         def linkDropTables(props):
             pass
-        
         """
         def decorator(fn):
             cls.linkers.append(
                 LinkerFunction(
                     label=args[0], 
-                    tag=args[1] if len(args) > 1 else None,
+                    tags=args[1] if len(args) > 1 else None,
                     callable=fn 
                 )
             )

@@ -206,6 +206,11 @@ class AssetsParser:
 
         return files
     
+    def get_files_with_tag(self, srcPath: str, tag: str):
+        all_files = self.csvParseMetadataFile(srcPath)
+        
+        return [x['filename'] for x in all_files if (tag in x['tags'])]
+    
     
     def jsonParse(self, dataPath, srcPaths, getFunc):
         def parseFile(fullPath, filename, objList):

@@ -1,9 +1,14 @@
+import json
 import os
+import pathlib
+import pprint
 import threading
 import logging
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
+from DesktopApp.asset_ripper_parser.index_files import FileIndexer
+from DesktopApp.asset_ripper_parser.prefab_parser import parse_prefab
 
 from DesktopApp.parser import Parser
 from DesktopApp.linker_registry import LinkerRegistry
@@ -37,6 +42,7 @@ class SunHavenRipperApp:
         
         self.status_label_text = tk.StringVar(value="Haven't Started Yet!")
         self.error_label_text = tk.StringVar(value="")
+        self.ripper_dir_label = tk.StringVar(value="AssetRipper Directory:")
         self.data_dir_label = tk.StringVar(value="Data Directory:")
         self.code_dir_label = tk.StringVar(value="Code Directory:")
         self.output_dir_label = tk.StringVar(value="Output Directory:")
@@ -49,6 +55,13 @@ class SunHavenRipperApp:
   
     def has_required_files(self) -> bool:
       return self.has_assets_xml(self.settings.data_dir) and self.settings.output_dir is not None
+  
+    def select_ripper_dir(self):
+        selected_dir = filedialog.askdirectory()
+        
+        self.settings.ripper_dir = selected_dir
+        self.ripper_dir_label.set(f"AssetRipper Directory: {selected_dir}")
+        self.check_valid_files()
   
     def select_data_dir(self):
         selected_dir = filedialog.askdirectory()
@@ -129,7 +142,7 @@ class SunHavenRipperApp:
       if progress.complete:  
         logging.debug(f'opening {self.settings.output_dir}')
         self.set_current_task("Finished!")
-        self.progress_bar.step(self.total_parsers)
+        self.progress_bar.step(self.total_parsers + 1)
         self.start_button["state"] = tk.NORMAL
         os.startfile(self.settings.output_dir)
       else:
@@ -142,15 +155,6 @@ class SunHavenRipperApp:
     def parse_data(self):
         try:
           version = self.version_text.get("1.0", "end").strip()
-          version = self.version_text.get("1.0", "end").strip()
-          
-          logging.basicConfig(level=logging.DEBUG, 
-                              filename=os.path.join(self.settings.output_dir, version, "debug.log"))
-          
-          version = self.version_text.get("1.0", "end").strip()          
-          
-          logging.basicConfig(level=logging.DEBUG, 
-                              filename=os.path.join(self.settings.output_dir, version, "debug.log"))
           
           parser = Parser(
             game_version=version,
@@ -161,6 +165,26 @@ class SunHavenRipperApp:
             skip_setup=self.skip_setup_value.get() == 1
           )
           
+          # tagged_files = os.path.join(self.settings.output_dir, "tagged_files.csv")
+          
+          # os.makedirs(self.settings.output_dir, exist_ok=True)
+          # file_indexer = FileIndexer(
+          #   assets_folder=self.settings.ripper_dir,
+          #   ids_file=os.path.join(self.settings.output_dir, "ids.csv"),
+          #   file_tags_file=tagged_files
+          # )
+          
+          # file_indexer.index_files()
+          
+          # with open(os.path.join(self.settings.output_dir, "output.txt"), 'w') as output_file:
+          #   with open(tagged_files, 'r') as tagged_files:
+          #     for line in tagged_files.readlines():
+          #       output_file.write(line.split(",")[0] + "\n")
+          #       components = parse_prefab(os.path.join(self.settings.ripper_dir, line.split(",")[0]))
+          #       pprint.pprint(components, stream=output_file)
+          #       output_file.write("\n\n")
+              
+          # print("Done!")
           linkers = [key for key, value in self.checkbuttons.items() if value.get() == 1]
           self.total_parsers = len(linkers)
           
@@ -241,6 +265,15 @@ class SunHavenRipperApp:
         self.code_dir_button = tk.Button(self.directories_frame, text="Select...", command=self.select_code_dir)
         self.code_dir_button.pack(anchor='sw')
         
+        ripper_dir = tk.Label(self.directories_frame, font=('Helvetica', 12, 'normal'), textvariable=self.ripper_dir_label)
+        ripper_dir.pack(anchor='sw')
+        
+        ripper_dir_instruction = tk.Label(self.directories_frame, text="- (optional) Should be Assets folder from AssetRipper export")
+        ripper_dir_instruction.pack(anchor='nw')
+        
+        self.ripper_dir_button = tk.Button(self.directories_frame, text="Select...", command=self.select_ripper_dir)
+        self.ripper_dir_button.pack(anchor='sw')
+        
         tk.Label(self.frame.inner, textvariable=self.error_label_text, font=('Helvetica', 9, 'bold'), justify='left').pack(anchor='sw')
         
         self.create_checkboxes()
@@ -263,7 +296,9 @@ class SunHavenRipperApp:
         self.window.mainloop()
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG, filename="sun_haven_ripper_debug.log")  
+    logging.basicConfig(level=logging.DEBUG, 
+                        #filename="sun_haven_ripper_debug.log"
+                        )  
     app = SunHavenRipperApp()
     app.start()
   

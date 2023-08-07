@@ -7,6 +7,7 @@ import math
 import time
 import json
 import logging
+from DesktopApp.file_tags import FileTags
 from DesktopApp.item_category import ItemCategory
 from DesktopApp.datum import Datum
 from DesktopApp.assets_parser import AssetsParser
@@ -31,10 +32,11 @@ class Parser:
         self.xmlPath = f'{data_path}/assets.xml'
         self.csvPath = f'{data_path}/assets.csv'
         self.refPath = f'{data_path}/references.csv'
+        self.spritesPath = f'{data_path}/sprites.csv'
         self.assets_parser = AssetsParser(self.csvPath, self.xmlPath, self.refPath, on_progress_update)
         
         if not skip_setup:
-            self.xml2csv(self.xmlPath, self.csvPath, self.refPath)
+            self.xml2csv(self.xmlPath, self.csvPath, self.refPath, self.spritesPath)
 
         self.outputPath = output_path
         self.dstPath = os.path.join(output_path, game_version, 'fileTypes.csv')
@@ -44,7 +46,7 @@ class Parser:
             self.labelFiles(f"{data_path}/MonoBehaviour", self.dstPath)
 
     
-    def xml2csv(self, srcPath, assets_csv, references_path):
+    def xml2csv(self, srcPath, assets_csv, references_path, sprites_path):
         logging.debug('Opening assets.xml')
         self.on_progress_update(Progress("Viewing GIGANTIC list of assets..."))
         tree = ET.parse(srcPath)
@@ -55,6 +57,7 @@ class Parser:
 
         objList = []
         references = []
+        sprites = []
 
         logging.debug("Parsing assets.xml")
         # all items data
@@ -87,8 +90,12 @@ class Parser:
             if re.match("[A-Za-z]+FishSpawner.*", name) is not None or \
                 is_progress_container or name.startswith('RecipeList_'):
                 references.append(Datum(pID, "0", name))
-
-
+            
+            name = elem.find('Name').text
+            type = elem.find('Type')
+            if type is not None and type.text == "Sprite":
+                sprites.append(Datum(pID, "0", name))
+                
         logging.debug("\nSorting")
         objList.sort()
 
@@ -100,10 +107,15 @@ class Parser:
             f.write(str(obj) + '\n')
         f.close()
         
+        # Write references - Fish spawns, Recipes lists, Skills, Game Progress, and Quest Markers
         with open(references_path, "w") as reference_file:
             for obj in references:
                 reference_file.write(str(obj) + '\n')
-            reference_file.close()
+        
+        # Write sprite names for image lookup
+        with open(sprites_path, "w") as sprites_file:
+            for sprite in sprites:
+                sprites_file.write(str(sprite) + '\n')
         
     def labelFiles(self, srcPath, dstPath):
         def isFileType(f, types):
@@ -216,23 +228,27 @@ class Parser:
                         if 'love' in data and data['love']:
                             tags += ",gift table"
                         if 'startingItems' in data:
-                            tags += ",merchant table"
+                            tags += f",{FileTags.MerchantTable.value}"
                         if 'input' in data and 'output' in data:
-                            tags += ",recipe"
+                            tags += f",{FileTags.Recipe.value}"
                         if 'craftingRecipes' in data and data['craftingRecipes']:
-                            tags += ",recipe list"
+                            tags += f",{FileTags.RecipeList.value}"
                         if ('_drops' in data and data['_drops'] and 'drops' in data['_drops'][0] and data['_drops'][0]['drops']) or \
                             ('_foliage' in data and data['_foliage'] and 'drops' in data['_foliage']):
-                            tags += ",drop table"
+                            tags += f",{FileTags.DropTable.value}"
                         if ('drops' in data and 'drops' in data['drops']):
-                            tags += ",destructible"
+                            tags += f",{FileTags.Destructible.value}"
                         if 'fish' in data and data['fish'] and 'drops' in data['fish'] and data['fish']['drops']:
                             if 'large' in data:
-                                tags += ",fish net"
+                                tags += f",{FileTags.FishNet.value}"
                             else:
-                                tags += ",fish spawner"
+                                tags += f",{FileTags.FishSpawner.value}"
                         if 'cropStages' in data:
-                            tags += ",seed"
+                            tags += f",{FileTags.Seed.value}"
+                        if 'placeableOnTables' in data:
+                            tags += f",{FileTags.DecorationScript.value}"
+                        if '_canDestroyDecorations' in data:
+                            tags += f",{FileTags.PlaceableScript.value}"
 
                     except:
                         tags = ",unparseable"

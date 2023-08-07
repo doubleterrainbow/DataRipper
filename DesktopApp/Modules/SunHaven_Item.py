@@ -1,11 +1,13 @@
 # import required module
 import json
 import os
+import re
 
 class Item:
     def __init__(self):
         self.filename = ""
         self.name = ""
+        self.id = ""
         self.pID = ""
         self._gID = ""
         self.description = ""
@@ -16,6 +18,9 @@ class Item:
         self.orbSell = ""
         self.rarity = ""
         self.hearts = ""
+        
+        self.icon_pID = ""
+        self.icon_filepath = ""
 
     def __str__(self):
         ret = str(self.filename) + ": " + str(self.gID) + " - " + str(self.name) + '\n'
@@ -29,6 +34,21 @@ class Item:
         ret += "- Tickets: " + str(self.ticketSell) + '\n'
 
         return ret
+    
+    def clean_description(self) -> str:
+        return re.sub(r"<color=#[A-Z0-9]+>\([\w\s]+\)<\/color>", "", self.description)\
+            .replace("\n", " ")\
+            .replace("</b>", "'''").replace("<b>", "'''")
+    
+    def to_csv_list(self):
+        return [
+            self.name,self.id,self.icon_filepath,
+            self.rarity,self.hearts,self.clean_description(),
+            self.coinSell,self.orbSell,self.ticketSell
+        ]
+        
+    def to_csv(self):
+        return f"{self.name},{self.id},{self.icon_filepath},{self.rarity},{self.hearts},{self.description},{self.coinSell},{self.orbSell},{self.ticketSell}"
 
     @property
     def gID(self):
@@ -37,6 +57,16 @@ class Item:
     @gID.setter
     def gID(self, value):
         self._gID = value
+        
+class Furniture(Item):
+    def __init__(self):
+        super().__init__()
+        self.rotateable = False
+        self.part_of_set = ""
+        self.placed_on = "floor" # [floor, surface, wall]
+        
+    def to_csv_list(self):
+        return super().to_csv_list() + [self.rotateable,self.part_of_set,self.placed_on]
 
 class Food(Item):
     def __init__(self):
@@ -112,14 +142,17 @@ def getItem(jsonPath):
         obj = Armor()
     elif 'foodStat' in data:
         obj = Food()
+    elif data["useDescription"] == "(Left click to place)":
+        obj = Furniture()
     else:
         obj = Item()
 
     n = data['m_Name'].split(' - ')
     if len(n) > 1:
-        obj.name = n[1]
+        obj.name = n[1].strip()
         obj.gID = n[0]
 
+    obj.id = data['id']
     obj.description = data['description']
     obj.stackSize = data['stackSize']
     obj.coinSell = data['sellPrice']
@@ -127,6 +160,8 @@ def getItem(jsonPath):
     obj.ticketSell = data['ticketSellPrice']
     obj.rarity = data['rarity']
     obj.hearts = data['hearts']
+    
+    obj.icon_pID = data['icon']['m_PathID']
 
     statTypes = ["Health","Mana","AttackDamage","AttackSpeed","HealthRegen","ManaRegen","Movespeed","Jump","SpellDamage","MeleeLifesteal","RangedLifeSteal","MovespeedOnHit","MovespeedOnKill","HealthOnKill","Crit","DamageReduction","GoldGain","Knockback","StunDuration","Size","FishingSkill","MiningSkill","ExplorationSkill","Defense","FlatDamage","RomanceBonus","MoneyPerDay","BonusCombatEXP","BonusWoodcuttingEXP","BonusFishingEXP","BonusMiningEXP","BonusCraftingEXP","BonusFarmingEXP","StunChance","Accuracy","FarmingSkill","GoldPerCraft","MiningCrit","WoodcuttingCrit","SmithingSkill","BonusExperience","SpellPower","SwordPower","CrossbowPower","CritDamage","Dodge","FreeAirSkipChance","FishingMinigameSpeed","FishBobberAttraction","EnemyGoldDrop","ExtraForageableChance","BonusTreeDamage","MiningDamage","FallDamageReduction","MovementSpeedAfterRock","FruitManaRestore","SpellAttackSpeed","Power","WoodcuttingDamage","CommunityTokenPerDay","TicketsPerDay","TripleGoldChance","PickupRange","ExtraCropChance","FishingWinArea","FishingSweetSpotArea","ManaPerCraft","BlackGemDropChance","CraftingSpeed","MiningDamageWithergate","OrbsPerDay"]
     professionTypes = ["Combat", "Farming", "Fishing", "Mining", "Exploration"]

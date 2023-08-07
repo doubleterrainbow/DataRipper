@@ -1,3 +1,4 @@
+import csv
 import os
 import re
 import json
@@ -24,6 +25,7 @@ from DesktopApp.Modules import SunHaven_Tool as ToolParser
 from DesktopApp.Modules import SunHaven_Quest as QuestParser
 from DesktopApp.Modules import SunHaven_Book as BookParser
 from DesktopApp.datum import Datum
+from DesktopApp.file_tags import FileTags
 from DesktopApp.parser import Parser
 from DesktopApp.progress import Progress
 from DesktopApp.linker_registry import LinkerRegistry
@@ -52,7 +54,6 @@ def jsonParse(parser: Parser, srcPaths, getFunc):
             parseFile(folderPath,os.path.basename(srcPath),objList)
         else:
             logging.debug('File: ' + folderPath + " cannot be found")
-
 
     return objList
 
@@ -166,10 +167,10 @@ def linkDialogues(parser, srcPaths, dstPath):
     
     parser.on_progress_update(Progress( f"Finished parsing dialogues..."))
 
-@LinkerRegistry.register("Drop Tables", "drop table")
+@LinkerRegistry.register("Drop Tables", [FileTags.DropTable])
 def linkDropTables(parser: Parser, srcPaths, dstPath):
 
-    objList = jsonParse(parser, srcPaths, DropTableParser.getDropTable)
+    objList = jsonParse(parser, srcPaths[FileTags.DropTable.value], DropTableParser.getDropTable)
     logging.debug("Found " + str(len(objList)) + " enemies with drop tables.")
     parser.on_progress_update(Progress( f"Found {str(len(objList))} enemies with drop tables."))
 
@@ -213,10 +214,10 @@ def linkDropTables(parser: Parser, srcPaths, dstPath):
     
     parser.on_progress_update(Progress( f"Finished parsing drop tables..."))
 
-@LinkerRegistry.register("Destructibles", "destructible")
+@LinkerRegistry.register("Destructibles", [FileTags.Destructible])
 def linkDestructibles(parser: Parser, srcPaths, dstPath):
 
-    objList = jsonParse(parser, srcPaths, DestructibleParser.getDestructible)
+    objList = jsonParse(parser, srcPaths[FileTags.Destructible.value], DestructibleParser.getDestructible)
     logging.debug("Found " + str(len(objList)) + " entities with health and drops.")
     parser.on_progress_update(Progress( f"Found {str(len(objList))} entities with health and drops."))
 
@@ -237,10 +238,10 @@ def linkDestructibles(parser: Parser, srcPaths, dstPath):
     
     parser.on_progress_update(Progress( f"Finished parsing destructibles..."))
 
-@LinkerRegistry.register("Seeds", "seed")
+@LinkerRegistry.register("Seeds", [FileTags.Seed])
 def linkSeeds(parser: Parser, srcPaths, dstPath):
     
-    objList = jsonParse(parser, srcPaths, SeedParser.getSeed)
+    objList = jsonParse(parser, srcPaths[FileTags.Seed.value], SeedParser.getSeed)
     logging.debug("Found " + str(len(objList)) + " seeds.")
     parser.on_progress_update(Progress( f"Found {str(len(objList))} seeds."))
 
@@ -282,9 +283,9 @@ def linkSeeds(parser: Parser, srcPaths, dstPath):
     
     parser.on_progress_update(Progress( f"Finished parsing seeds..."))
 
-@LinkerRegistry.register("Animals", "animal")
+@LinkerRegistry.register("Animals", [FileTags.Animal])
 def linkAnimals(parser: Parser, srcPaths, dstPath):
-    animals = jsonParse(parser, srcPaths, AnimalsParser.getAnimalTable)
+    animals = jsonParse(parser, srcPaths[FileTags.Animal.value], AnimalsParser.getAnimalTable)
     logging.debug("Found " + str(len(animals)) + " animals.")
     parser.on_progress_update(Progress( f"Found {str(len(animals))} animals."))
 
@@ -310,27 +311,101 @@ def linkAnimals(parser: Parser, srcPaths, dstPath):
     
     parser.on_progress_update(Progress( f"Finished parsing animals..."))
 
-@LinkerRegistry.register("Items", 'item')
+@LinkerRegistry.register("Items", [FileTags.Item, FileTags.PlaceableScript, FileTags.DecorationScript])
 def linkItems(parser, srcPaths, dstPath):
-
-    objList = jsonParse(parser, srcPaths, ItemParser.getItem)
-    logging.debug("Found " + str(len(objList)) + " items.")
+    items = jsonParse(parser, srcPaths[FileTags.Item.value], ItemParser.getItem)
+    parser.on_progress_update(Progress( f"Organizing {len(items)} items..."))
+    logging.debug("Found " + str(len(items)) + " items.")
     
-    objList.sort(key=operator.attrgetter('gID'))
-
+    items.sort(key=operator.attrgetter('gID'))
+    
+    written_items = []
+    unique_items = []
+    for item in items:
+        name = re.sub(r"\((Up|L|R)\)", "", item.name).strip()
+        if name not in written_items:
+            unique_items.append(item)
+            written_items.append(name)
+    
+    parser.on_progress_update(Progress( f"Finding item sprites..."))
+    
+    count = 0
+    
+    with open(parser.spritesPath, 'r') as sprites_file:
+        sprites = sprites_file.readlines()
+        for item in unique_items:
+            count += 1
+            if count % 100 == 0:
+                parser.on_progress_update(Progress(f"Found sprites for {count}/{len(unique_items)}"))
+                
+            
+            matching_sprite = None
+            for x in sprites:
+                if x.startswith(f"{item.icon_pID},"):
+                    matching_sprite = x
+                    break
+            if matching_sprite is not None:
+                item.icon_filepath = matching_sprite.split(',')[2].strip()
+                
+            if isinstance(item, ItemParser.Furniture):
+                rotated_versions = [x for x in items if x.name == f"{item.name} (L)" or x.name == f"{item.name} (R)"]
+                if rotated_versions:
+                    item.rotateable = True
+                    
+                try:
+                    set_candidates = [x.name for x in items if x.name.startswith(item.name.split(" ")[0]) and x.name != item.name]
+                    if len(set_candidates) > 2:
+                        set_name_length = len(set(item.name.split(" ")).intersection(set_candidates[1].split(" ")))
+                        item.part_of_set = " ".join(item.name.split(" ")[0:(set_name_length - 1)])
+                except:
+                    logging.error(f"Error finding set for {item.name}", exc_info=True)               
+                
+    parser.on_progress_update(Progress( f"Writing items to file..."))
     os.makedirs(os.path.dirname(dstPath), exist_ok=True)
     f = open(dstPath, "w")
-    for obj in objList:
-        f.write(str(obj) + '\n')
+    for item in unique_items:
+        f.write(str(item) + '\n')
 
     f.close()
     
+    with open(dstPath.replace(".txt", "_description_template.txt"), 'w') as descriptions_file:
+        unique_items.sort(key=lambda x: x.name)
+        default = "    |#default=Edit in https://sun-haven.fandom.com/wiki/Template:Description <!--if the item doesn't have a listing here, it will show this-->}}\n"
+        
+        descriptions_file.write("<includeonly><!--1.2.0-->{{#switch:{{lc:{{#sub:{{{1|{{PAGENAME}}}}}|0|1}} }}\n")
+        descriptions_file.write("<!-- example: |name(lower case letters)=Description -->\n")
+
+        for key, group in itertools.groupby(unique_items, lambda x: x.name.strip().lower()[0]):
+            descriptions_file.write(f"|{key}=" + "{{#switch:{{lc:{{{1|{{PAGENAME}}}}}}}\n")
+            for shared_description_key, shared_descriptions in itertools.groupby(group, lambda x: x.description):
+                item_names = set([x.name.lower() for x in shared_descriptions])
+                clean_description = re.sub(r"<color=#[A-Z0-9]+>\([\w\s]+\)<\/color>", "", shared_description_key).replace("</b>", "'''").replace("<b>", "'''")
+                clean_description = re.sub(r'\s{2,}', ' ', clean_description)
+                
+                if clean_description != "":
+                    descriptions_file.write(f"    |{'|'.join(item_names)}={clean_description}\n")
+            descriptions_file.write(default)
+            
+        descriptions_file.write("|#default=Edit in https://sun-haven.fandom.com/wiki/Template:Description")
+        descriptions_file.write("}}</includeonly><noinclude>{{documentation}}</noinclude>")
+    
+    with open(dstPath.replace(".txt", ".csv"), 'w') as csvfile:
+        item_writer = csv.writer(csvfile)
+        for item in unique_items:
+            item_writer.writerow(item.to_csv_list())
+    
+    with open(dstPath.replace(".txt", "_furniture.csv"), 'w') as furniture_file:
+        furniture_writer = csv.writer(furniture_file)
+        for item in unique_items:
+            if isinstance(item, ItemParser.Furniture):
+                furniture_writer.writerow(item.to_csv_list())
+    
     parser.on_progress_update(Progress( f"Finished parsing items..."))
 
-@LinkerRegistry.register("Fishing Nets", "fish net")
+@LinkerRegistry.register("Fishing Nets", [FileTags.FishNet])
 def linkFishingNets(parser: Parser, srcPaths, dstPath):
     
-    objList = jsonParse(parser, srcPaths, FishingNetParser.getFishingNet)
+    objList = jsonParse(parser, srcPaths[FileTags.FishNet.value], FishingNetParser.getFishingNet)
     logging.debug("Found " + str(len(objList)) + " Fishing Nets.")
     parser.on_progress_update(Progress( f"Found {str(len(objList))} Fishing nets."))
     
@@ -349,10 +424,10 @@ def linkFishingNets(parser: Parser, srcPaths, dstPath):
             fishing_net_file.write('\n')
     parser.on_progress_update(Progress( f"Finished writing fishing nets..."))
 
-@LinkerRegistry.register("Fish Spawners", "fish spawner")
+@LinkerRegistry.register("Fish Spawners", [FileTags.FishSpawner])
 def linkFishSpawners(parser: Parser, srcPaths, dstPath):
     
-    objList = jsonParse(parser, srcPaths, FishSpawnerParser.getFishSpawner)
+    objList = jsonParse(parser, srcPaths[FileTags.FishSpawner.value], FishSpawnerParser.getFishSpawner)
     logging.debug("Found " + str(len(objList)) + " Fish Spawners.")
     
     datumList = []
@@ -530,9 +605,9 @@ def linkFishSpawners(parser: Parser, srcPaths, dstPath):
             
     parser.on_progress_update(Progress(f"Finished writing fish spawners to file..."))    
 
-@LinkerRegistry.register("Gift Tables", "gift table")
+@LinkerRegistry.register("Gift Tables", [FileTags.GiftTable])
 def linkGiftTables(parser: Parser, srcPaths, dstPath):
-    objList = jsonParse(parser, srcPaths, GiftTableParser.getGiftTable)
+    objList = jsonParse(parser, srcPaths[FileTags.GiftTable.value], GiftTableParser.getGiftTable)
     logging.debug("Found " + str(len(objList)) + " Gift Tables.")
 
     
@@ -586,10 +661,10 @@ def linkGiftTables(parser: Parser, srcPaths, dstPath):
     f.close()
     parser.on_progress_update(Progress( f"Finished writing gift tables to file..."))
 
-@LinkerRegistry.register("Merchants", "merchant table")
+@LinkerRegistry.register("Merchants", [FileTags.MerchantTable])
 def linkMerchants(parser: Parser, srcPaths, dstPath):
 
-    objList = jsonParse(parser, srcPaths, MerchantParser.getMerchant)
+    objList = jsonParse(parser, srcPaths[FileTags.MerchantTable.value], MerchantParser.getMerchant)
 
     logging.debug("Found " + str(len(objList)) + " Merchants.")
 
@@ -616,9 +691,9 @@ def linkMerchants(parser: Parser, srcPaths, dstPath):
                 formatted_file.write("\n{{Shop|" + f"{item.name}|{item.value}|{item.currency}" + "}}")
             formatted_file.write("\n{{Shop/footer}}\n")
 
-@LinkerRegistry.register("Nested Recipe Lists", "recipe list")
+@LinkerRegistry.register("Nested Recipe Lists", [FileTags.RecipeList])
 def linkNestedRecipeLists(parser: Parser, srcPaths, dstPath):
-    recipe_lists = jsonParse(parser, srcPaths, RecipeListParser.getRecipeList)
+    recipe_lists = jsonParse(parser, srcPaths[FileTags.RecipeList.value], RecipeListParser.getRecipeList)
     logging.debug("Found " + str(len(recipe_lists)) + " Recipe Lists.")
     
     parser.on_progress_update(Progress( f"Found {str(len(recipe_lists))} Recipe Lists."))
@@ -682,9 +757,9 @@ def linkNestedRecipeLists(parser: Parser, srcPaths, dstPath):
 
     parser.on_progress_update(Progress( f"Finished recipes to file..."))
 
-@LinkerRegistry.register("Recipe Lists", "recipe list")
+@LinkerRegistry.register("Recipe Lists", [FileTags.RecipeList])
 def linkRecipeLists(parser: Parser, srcPaths, dstPath):
-    objList = jsonParse(parser, srcPaths, RecipeListParser.getRecipeList)
+    objList = jsonParse(parser, srcPaths[FileTags.RecipeList.value], RecipeListParser.getRecipeList)
     logging.debug("Found " + str(len(objList)) + " Recipe Lists.")
     
     parser.on_progress_update(Progress( f"Found {str(len(objList))} Recipe Lists."))
@@ -707,10 +782,10 @@ def linkRecipeLists(parser: Parser, srcPaths, dstPath):
     parser.on_progress_update(Progress( f"Finished writing recipe lists to file..."))
 
 
-@LinkerRegistry.register("Recipes", "recipe")
+@LinkerRegistry.register("Recipes", [FileTags.Recipe])
 def linkRecipes(parser: Parser, srcPaths, dstPath):
             
-    objList = jsonParse(parser, srcPaths, RecipeParser.getRecipe)
+    objList = jsonParse(parser, srcPaths[FileTags.Recipe.value], RecipeParser.getRecipe)
     logging.debug("Found " + str(len(objList)) + " Recipes.")
     parser.on_progress_update(Progress( f"Found " + str(len(objList)) + " Recipes."))
     
@@ -768,9 +843,9 @@ def linkRecipes(parser: Parser, srcPaths, dstPath):
 
     parser.on_progress_update(Progress( f"Finished recipes to file..."))
 
-@LinkerRegistry.register("Statted Items")
+@LinkerRegistry.register("Statted Items", [FileTags.Statted])
 def linkStattedItems(parser, srcPaths, dstPath):
-    objList = jsonParse(parser, srcPaths, StattedItemParser.getStattedItem)
+    objList = jsonParse(parser, srcPaths[FileTags.Statted.value], StattedItemParser.getStattedItem)
     logging.debug(f"Found {str(len(objList))} Statted Items.")
     parser.on_progress_update(Progress( f"Found {str(len(objList))} Statted Items."))
     
@@ -814,9 +889,9 @@ def linkTools(parser: Parser, srcPaths, dstPath):
     
     parser.on_progress_update(Progress( f"Finished writing tools file..."))
 
-@LinkerRegistry.register("Books", "readable")
+@LinkerRegistry.register("Books", [FileTags.Readable])
 def linkBooks(parser: Parser, srcPaths, dstPath):
-    books = jsonParse(parser, srcPaths, BookParser.getBook)
+    books = jsonParse(parser, srcPaths[FileTags.Readable.value], BookParser.getBook)
     logging.debug(f"Found {str(len(books))} Books.")
     parser.on_progress_update(Progress( f"Found {str(len(books))} Books."))
     
@@ -833,10 +908,10 @@ def linkBooks(parser: Parser, srcPaths, dstPath):
     
     parser.on_progress_update(Progress( f"Finished writing books file..."))
     
-@LinkerRegistry.register("Quests", 'quest')
+@LinkerRegistry.register("Quests", [FileTags.Quest])
 def linkQuests(parser: Parser, srcPaths, dstPath):
 
-    objList = jsonParse(parser, srcPaths, QuestParser.getQuest)
+    objList = jsonParse(parser, srcPaths[FileTags.Quest.value], QuestParser.getQuest)
     logging.debug(f"Found {str(len(objList))} Quests.")
     parser.on_progress_update(Progress( f"Found {str(len(objList))} Quests."))
     
@@ -868,13 +943,15 @@ def start_linking(parser: Parser, enabled_linkers):
         
         if linker.label in enabled_linkers:
             # TODO: there's gotta be a better way
-            if linker.tag is None:
+            if linker.tags is None:
                 if linker.label == "Cutscenes": 
                     files = [os.path.join(parser.codePath,x) for x in os.listdir(parser.codePath) if ('Cutscene' in x)]
                 elif linker.label == "Dialogues":
                     files = 'TextAsset'
             else:
-                files = [x['filename'] for x in all_files if (linker.tag in x['tags'])]
+                files = {}
+                for tag in linker.tags:
+                    files[tag.value] = [x['filename'] for x in all_files if (tag.value in x['tags'])]
             try:
                 linker.callable(parser, files, os.path.join(parser.outputPath, parser.gameVersion, linker.output_filename))
                 progress += 1
