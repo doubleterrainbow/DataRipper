@@ -45,27 +45,27 @@ def parse_data():
         file_count = file_indexer.get_asset_count()
         
         if create_ids:
-            with alive_bar(file_count) as bar:
-                def report_bar_progress():
-                    bar(1000)
-                    bar.text(f"Storing file IDs")
+            with alive_bar(file_count) as progress_bar:
+                def report_map_progress():
+                    progress_bar(1000)
+                    progress_bar.text("Storing file IDs")
                     
                 file_indexer.create_mapping_files(
-                    report_progress=report_bar_progress,
+                    report_progress=report_map_progress,
                 )
             
         if categorize_files:
-            with alive_bar(file_count) as bar:
-                def report_bar_progress():
-                    bar(1000)
-                    bar.text(f"Tagging files")
+            with alive_bar(file_count) as progress_bar:
+                def report_org_progress():
+                    progress_bar(1000)
+                    progress_bar.text("Tagging files")
                     
                 file_indexer.create_organization_file(
-                    report_progress=report_bar_progress,
+                    report_progress=report_org_progress,
                 )
-            
-            
-        with open(tagged_files, 'r') as tagged_files:
+
+
+        with open(tagged_files, 'r', encoding="utf-8") as tagged_files:
             file_tags = tagged_files.readlines()
             
             parsers = included_parsers
