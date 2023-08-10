@@ -2,16 +2,20 @@ import json
 import os
 import pathlib
 import pprint
+import re
 import threading
 import logging
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
 from DesktopApp.asset_ripper_parser.index_files import FileIndexer
-from DesktopApp.asset_ripper_parser.prefab_parser import parse_prefab
+from DesktopApp.asset_ripper_parser.parsers.outputs import included_parsers
+from DesktopApp.asset_ripper_parser.parsers.gift_tables import parse_gift_tables
+from DesktopApp.asset_ripper_parser.exported_file_parser import parse_exported_file
+from DesktopApp.asset_ripper_parser.parsers.parser_registry import ParserRegistry
+from DesktopApp.asset_ripper_parser.parsers.recipes import parse_recipes
+from DesktopApp.asset_ripper_parser.parsers.skill_tree import parse_skill_trees
 
-from DesktopApp.parser import Parser
-from DesktopApp.linker_registry import LinkerRegistry
 from DesktopApp.progress import Progress
 from DesktopApp.SunHaven_Linker import start_linking
 from DesktopApp.app_settings import AppSettings
@@ -52,9 +56,9 @@ class SunHavenRipperApp:
     
     def has_assets_xml(self, directory_name) -> bool:
       return os.path.isfile(f"{directory_name}/assets.xml")
-  
+    
     def has_required_files(self) -> bool:
-      return self.has_assets_xml(self.settings.data_dir) and self.settings.output_dir is not None
+      return self.settings.ripper_dir is not None and self.settings.output_dir is not None
   
     def select_ripper_dir(self):
         selected_dir = filedialog.askdirectory()
@@ -63,35 +67,6 @@ class SunHavenRipperApp:
         self.ripper_dir_label.set(f"AssetRipper Directory: {selected_dir}")
         self.check_valid_files()
   
-    def select_data_dir(self):
-        selected_dir = filedialog.askdirectory()
-        
-        if not self.has_assets_xml(selected_dir):
-          self.error_label_text.set("- Could not find assets.xml in this directory.\n")
-        else:
-          self.settings.data_dir = selected_dir
-          self.data_dir_label.set(f"Data Directory: {selected_dir}")
-          self.check_valid_files()
-    
-    def select_code_dir(self):
-        selected_dir = filedialog.askdirectory()
-        if not selected_dir:
-          return
-        
-        has_files = self.has_cutscenes(selected_dir)
-        if not has_files:
-          self.error_label_text.set("- Could not find cutscenes files. \n(Expected to find a folder named \SunHaven.Core\Wish)")
-          self.cutscene_checkbutton['state'] = tk.DISABLED
-          self.checkbuttons["Cutscenes"].set(0)
-
-        if has_files:
-          self.cutscene_checkbutton['state'] = tk.NORMAL
-          self.checkbuttons["Cutscenes"].set(1)
-          self.error_label_text.set("No Problems Found.")
-          self.settings.code_dir = selected_dir
-          self.code_dir_label.set(f"Code Directory: {selected_dir}")
-          self.check_valid_files()
-    
     def select_output_dir(self):
         selected_dir = filedialog.askdirectory()
 
@@ -109,16 +84,17 @@ class SunHavenRipperApp:
             status_label.pack()
             self.set_current_task("This is gonna take a while...")
             
-            self.progress_bar = ttk.Progressbar(self.frame.inner, length=400)
-            self.progress_bar.pack()
-            
-            self.skip_setup_checkbox = tk.Checkbutton(self.frame.inner, variable=self.skip_setup_value, text="Skip Reading Assets")
-            self.skip_setup_checkbox.pack()
-            
-            skip_setup_label = tk.Label(self.frame.inner, text="NOTE: only enable this if you are rerunning and reusing an output folder.\nOtherwise outputs will be empty.")
-            skip_setup_label.pack()
-            
-            self.frame.scroll_to_bottom()
+            if self.progress_bar is None:
+              self.progress_bar = ttk.Progressbar(self.frame.inner, length=400)
+              self.progress_bar.pack()
+              
+              self.skip_setup_checkbox = tk.Checkbutton(self.frame.inner, variable=self.skip_setup_value, text="Skip Reading Assets")
+              self.skip_setup_checkbox.pack()
+              
+              skip_setup_label = tk.Label(self.frame.inner, text="NOTE: only enable this if you are rerunning and reusing an output folder.\nOtherwise outputs will be empty.")
+              skip_setup_label.pack()
+              
+              self.frame.scroll_to_bottom()
         
     def set_current_task(self, task):
         self.status_label_text.set(task)
@@ -129,69 +105,91 @@ class SunHavenRipperApp:
         )
         parser_thread.start()
         
-        self.progress_bar.configure(mode='indeterminate')
-        self.progress_bar.start()
+        # self.progress_bar.start()
         self.start_button["state"] = tk.DISABLED
     
     def update_progress(self, progress: Progress):
-      if progress.error is not None:
-        self.start_button["state"] = tk.NORMAL
-        self.progress_bar.stop()
-        self.progress_bar.step(0)
+        pass
+      # if progress.error is not None:
+      #   self.start_button["state"] = tk.NORMAL
+      #   self.progress_bar.stop()
+      #   self.progress_bar.step(0)
         
-      if progress.complete:  
-        logging.debug(f'opening {self.settings.output_dir}')
-        self.set_current_task("Finished!")
-        self.progress_bar.step(self.total_parsers + 1)
-        self.start_button["state"] = tk.NORMAL
-        os.startfile(self.settings.output_dir)
-      else:
-        self.set_current_task(progress.message)
-        if progress.current_progress > 0:
-          self.progress_bar.stop()
-          self.progress_bar.configure(mode='determinate', maximum=self.total_parsers)
-          self.progress_bar.step(progress.current_progress)
+      # if progress.complete:
+      #   logging.debug(f'opening {self.settings.output_dir}')
+      #   self.set_current_task("Finished!")
+      #   self.progress_bar.step(self.total_parsers + 1)
+      #   self.start_button["state"] = tk.NORMAL
+      #   os.startfile(self.settings.output_dir)
+      # else:
+      #   self.set_current_task(progress.message)
+      #   if progress.current_progress > 0:
+      #     self.progress_bar.stop()
+      #     self.progress_bar.configure(mode='determinate', maximum=self.total_parsers)
+      #     self.progress_bar.step(progress.current_progress)
     
     def parse_data(self):
         try:
-          version = self.version_text.get("1.0", "end").strip()
           
-          parser = Parser(
-            game_version=version,
-            data_path=self.settings.data_dir,
-            code_path=self.settings.code_dir,
-            output_path=self.settings.output_dir,
-            on_progress_update=self.update_progress,
-            skip_setup=self.skip_setup_value.get() == 1
+          skip_setup = self.skip_setup_value.get() == 1
+          
+          os.makedirs(self.settings.output_dir, exist_ok=True)
+          os.makedirs(os.path.join(self.settings.output_dir, "file_mappings"), exist_ok=True)
+          
+          tagged_files = os.path.join(self.settings.output_dir, "file_mappings", "tagged_files.csv")
+          
+          file_indexer = FileIndexer(
+            assets_folder=self.settings.ripper_dir,
+            ids_file=os.path.join(self.settings.output_dir, "file_mappings", "ids.csv"),
+            file_tags_file=tagged_files
           )
           
-          # tagged_files = os.path.join(self.settings.output_dir, "tagged_files.csv")
-          
-          # os.makedirs(self.settings.output_dir, exist_ok=True)
-          # file_indexer = FileIndexer(
-          #   assets_folder=self.settings.ripper_dir,
-          #   ids_file=os.path.join(self.settings.output_dir, "ids.csv"),
-          #   file_tags_file=tagged_files
-          # )
-          
-          # file_indexer.index_files()
-          
-          # with open(os.path.join(self.settings.output_dir, "output.txt"), 'w') as output_file:
-          #   with open(tagged_files, 'r') as tagged_files:
-          #     for line in tagged_files.readlines():
-          #       output_file.write(line.split(",")[0] + "\n")
-          #       components = parse_prefab(os.path.join(self.settings.ripper_dir, line.split(",")[0]))
-          #       pprint.pprint(components, stream=output_file)
-          #       output_file.write("\n\n")
+          if not skip_setup:
               
-          # print("Done!")
-          linkers = [key for key, value in self.checkbuttons.items() if value.get() == 1]
-          self.total_parsers = len(linkers)
+              self.progress_bar.configure(mode='indeterminate')
+              self.progress_bar.start()
+              
+              self.status_label_text.set(f"Getting file IDs...")
+              file_indexer.create_mapping_files()
+              
+              self.status_label_text.set(f"Determining relevant files and their types...")
+              file_indexer.create_organization_file()
           
-          start_linking(
-            parser,
-            enabled_linkers=linkers
-          )
+          enabled_parsers = [key for key, value in self.checkbuttons.items() if value.get() == 1]
+
+          self.progress_bar.stop()
+          self.progress_bar.configure(value=0, maximum=len(enabled_parsers), mode='determinate')
+          
+          def add_to_progress():
+              self.progress_bar['value'] += 1
+          
+          with open(tagged_files, 'r') as tagged_files:
+            file_tags = tagged_files.readlines()
+            
+            parsers = ParserRegistry.registry
+            for parser in parsers:
+                if parser.label in enabled_parsers:
+                    files = {}
+                    for tag in parser.tags:
+                        files[tag.value] = [line.split(',')[0] for line in file_tags if tag.value in line.strip().split(',')[1:] and "_0" not in line]
+                    
+                    primary_file_amount = len(next(iter(files.values())))
+                    
+                    self.status_label_text.set(f"Parsing {primary_file_amount} {parser.label}")
+                    self.progress_bar['value'] = 0
+                    self.progress_bar['maximum'] = primary_file_amount
+                    
+                    try:
+                        parser.callable(file_indexer, add_to_progress, self.settings.output_dir, files)
+                    except Exception as e:
+                        logging.error(f"Error when linking {parser.label}", exc_info=True)
+          
+          self.set_current_task("Finished!")
+          self.progress_bar.stop()
+          self.start_button["state"] = tk.NORMAL
+          os.startfile(self.settings.output_dir)
+          
+          print("Done!")
         except Exception as e:
           self.update_progress(Progress("Encountered an unexpected error :(", error=e))
           logging.error("Exception in parse_data", exc_info=True)
@@ -203,7 +201,9 @@ class SunHavenRipperApp:
         checkboxes_label = tk.Label(checkbox_frame, font=('Helvetica', 12, 'normal'), text="Outputs:")
         checkboxes_label.pack(anchor='nw')
         
-        for linker in LinkerRegistry.linkers:
+        print(f"registered {len(ParserRegistry.registry)} parsers")
+        
+        for linker in included_parsers:
             self.checkbuttons[linker.label] = tk.IntVar(value=1)
             
             if "Cutscene" in linker.label:
@@ -230,10 +230,8 @@ class SunHavenRipperApp:
         """
         | 1               | 2               | 3             |4|
         | title           |                 |               | | 0
-        | select data dir | data dir button | data dir label| | 1
+        | select ripp dir | ripp dir button | ripp dir label| | 1
         | error label     |                 |               | | 2
-        | select code dir | code dir button | code dir label| | 3
-        | error label     |                 |               | | 4
         | checkboxes      |                 |               | | 5
         | version label   |  version box    |               | | 6
         | select out dir  | out dir button  | out dir label | | 7
@@ -246,24 +244,6 @@ class SunHavenRipperApp:
 
         self.directories_frame = tk.Frame(self.frame.inner, pady=10)
         self.directories_frame.pack(anchor='nw', expand=True, fill='both')
-        
-        data_dir = tk.Label(self.directories_frame, font=('Helvetica', 12, 'normal'), textvariable=self.data_dir_label)
-        data_dir.pack(anchor='nw')
-        
-        data_dir_instruction = tk.Label(self.directories_frame, text="- Should contain all assets and an assets.xml file")
-        data_dir_instruction.pack(anchor='nw')
-        
-        self.data_dir_button = tk.Button(self.directories_frame, text="Select...", command=self.select_data_dir)
-        self.data_dir_button.pack(anchor='nw')
-        
-        code_dir = tk.Label(self.directories_frame, font=('Helvetica', 12, 'normal'), textvariable=self.code_dir_label)
-        code_dir.pack(anchor='sw')
-        
-        code_dir_instruction = tk.Label(self.directories_frame, text="- (optional) Should contain decompiled code, usually from DnSpy")
-        code_dir_instruction.pack(anchor='nw')
-        
-        self.code_dir_button = tk.Button(self.directories_frame, text="Select...", command=self.select_code_dir)
-        self.code_dir_button.pack(anchor='sw')
         
         ripper_dir = tk.Label(self.directories_frame, font=('Helvetica', 12, 'normal'), textvariable=self.ripper_dir_label)
         ripper_dir.pack(anchor='sw')

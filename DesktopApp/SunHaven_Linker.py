@@ -311,7 +311,7 @@ def linkAnimals(parser: Parser, srcPaths, dstPath):
     
     parser.on_progress_update(Progress( f"Finished parsing animals..."))
 
-@LinkerRegistry.register("Items", [FileTags.Item, FileTags.PlaceableScript, FileTags.DecorationScript])
+@LinkerRegistry.register("Items", [FileTags.Item])
 def linkItems(parser, srcPaths, dstPath):
     items = jsonParse(parser, srcPaths[FileTags.Item.value], ItemParser.getItem)
     parser.on_progress_update(Progress( f"Organizing {len(items)} items..."))

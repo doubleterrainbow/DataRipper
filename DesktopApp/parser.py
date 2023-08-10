@@ -245,10 +245,6 @@ class Parser:
                                 tags += f",{FileTags.FishSpawner.value}"
                         if 'cropStages' in data:
                             tags += f",{FileTags.Seed.value}"
-                        if 'placeableOnTables' in data:
-                            tags += f",{FileTags.DecorationScript.value}"
-                        if '_canDestroyDecorations' in data:
-                            tags += f",{FileTags.PlaceableScript.value}"
 
                     except:
                         tags = ",unparseable"
