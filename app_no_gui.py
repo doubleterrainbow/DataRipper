@@ -13,8 +13,8 @@ def parse_data():
     output_dir = "D:\\Documents\\Sun Haven Assets\\test_output_1.2.2"
 
     # Skips indexing and tagging files    
-    categorize_files = False
-    create_ids = False
+    categorize_files = True
+    create_ids = True
     
     try:
         tagged_files = os.path.join(output_dir, "file_mappings", "tagged_files.csv")
