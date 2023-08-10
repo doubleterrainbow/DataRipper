@@ -1,40 +1,41 @@
 import logging
 import os
-import re
-from DesktopApp.asset_ripper_parser.parsers.outputs import included_parsers
 from alive_progress import alive_bar
+from DesktopApp.asset_ripper_parser.outputs import included_parsers
 from DesktopApp.asset_ripper_parser.index_files import FileIndexer
 
 def parse_data():
     # Asset ripper folder
     asset_dir = "D:\\Documents\\Sun Haven Assets\\AssetRipperExport_1.2.2"
-    
+
     # Output folder
     output_dir = "D:\\Documents\\Sun Haven Assets\\test_output_1.2.2"
 
-    # Skips indexing and tagging files    
+    # Skips indexing and tagging files
     categorize_files = True
     create_ids = True
-    
+
     try:
         tagged_files = os.path.join(output_dir, "file_mappings", "tagged_files.csv")
-        
-        os.makedirs(output_dir, exist_ok=True)
-        
+
+        os.makedirs(os.path.join(output_dir, "file_mappings"), exist_ok=True)
+
         # Bar Styles
         # 'smooth', 'classic', 'classic2', 'brackets', 'blocks', 
         # 'bubbles', 'solid', 'checks', 'circles', 'squares', 'halloween', 
         # 'filling', 'notes', 'ruler', 'ruler2', 'fish', 'scuba'
-        
+
         enabled_parsers = [
             # Parser Name, bar style (arbitrary), spinner style (arbitrary)
-            ('Monsters', 'halloween', 'elements'),
-            ('Recipes', 'smooth', 'dots'),
-            ('Skills', 'smooth', 'elements'),
-            ('Gift Tables', 'smooth', 'loving'),
+            # ('Monsters', 'halloween', 'elements'),
+            # ('Recipes', 'circles', 'dots'),
+            ('Skills', 'blocks', 'elements'),
+            # ('Furniture', 'blocks', 'dots'),
+            # ('Wallpaper', 'blocks', 'elements'),
+            # ('Gift Tables', 'checks', 'loving'),
         ]
-        
-            
+
+
         file_indexer = FileIndexer(
             assets_folder=asset_dir,
             ids_file=os.path.join(output_dir, "file_mappings", "ids.csv"),
@@ -45,8 +46,8 @@ def parse_data():
         
         if create_ids:
             with alive_bar(file_count) as bar:
-                def report_bar_progress(current):
-                    bar(current)
+                def report_bar_progress():
+                    bar(1000)
                     bar.text(f"Storing file IDs")
                     
                 file_indexer.create_mapping_files(
@@ -55,8 +56,8 @@ def parse_data():
             
         if categorize_files:
             with alive_bar(file_count) as bar:
-                def report_bar_progress(current):
-                    bar(current)
+                def report_bar_progress():
+                    bar(1000)
                     bar.text(f"Tagging files")
                     
                 file_indexer.create_organization_file(

@@ -1,5 +1,3 @@
-
-
 class ParserFunction:
     def __init__(self, label, tags, callable):
         self.label = label
