@@ -81,7 +81,8 @@ def parse_data():
                 files = {}
                 for tag in parser.tags:
                     files[tag.value] = [line.split(',')[0] for line in file_tags
-                                        if tag.value in line.strip().split(',')[1:] and "_0" not in line]
+                                        if tag.value in line.strip().split(',')[1:] and \
+                                            "_0" not in line]
 
                 try:
                     primary_file_amount = len(next(iter(files.values())))

@@ -2,6 +2,7 @@ class ParserFunction:
     """Contains information about function that is used to parse asset files,
     as well as a callable instance of that function.
     """
+
     def __init__(self, label, tags, callable):
         self.label = label
         self.tags = tags

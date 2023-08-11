@@ -13,8 +13,8 @@ from DesktopApp.asset_ripper_parser.outputs import included_parsers
 from DesktopApp.asset_ripper_parser.parsers.gift_table_parser import parse_gift_tables
 from DesktopApp.asset_ripper_parser.exported_file_parser import parse_exported_file
 from DesktopApp.asset_ripper_parser.parsers.parser_registry import ParserRegistry
-from DesktopApp.asset_ripper_parser.parsers.recipes import parse_recipes
-from DesktopApp.asset_ripper_parser.parsers.skill_tree import parse_skill_trees
+from DesktopApp.asset_ripper_parser.parsers.recipe_parser import parse_recipes
+from DesktopApp.asset_ripper_parser.parsers.skill_tree_parser import parse_skill_trees
 
 from DesktopApp.progress import Progress
 from DesktopApp.SunHaven_Linker import start_linking

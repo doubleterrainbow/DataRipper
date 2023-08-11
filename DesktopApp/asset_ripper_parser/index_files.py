@@ -110,7 +110,9 @@ class FileIndexer:
 
         with open(self.ids_file, "w", encoding="utf-8") as ids_file:
             with open(self.sprite_ids_file, "w", encoding="utf-8") as sprite_ids_file:
-                with open(self.texture_ids_file, "w", encoding="utf-8") as texture_ids_file:
+                with open(
+                    self.texture_ids_file, "w", encoding="utf-8"
+                ) as texture_ids_file:
                     for path, _, files in os.walk(self.assets_folder):
                         for name in files:
                             count += 1
@@ -124,9 +126,13 @@ class FileIndexer:
                                 "icon" in name and ".asset" in name
                             )
                             is_texture_file = ".png" in name
-                            is_data_file = [x for x in self.folders_to_index if x in path]
+                            is_data_file = [
+                                x for x in self.folders_to_index if x in path
+                            ]
 
-                            is_valid_file = is_data_file or is_sprites_file or is_texture_file
+                            is_valid_file = (
+                                is_data_file or is_sprites_file or is_texture_file
+                            )
 
                             if not is_valid_file:
                                 # logging.debug(f"Skipping {name}")
@@ -137,7 +143,9 @@ class FileIndexer:
                                 meta_file_text = meta_file.readlines()
                                 if "guid:" in meta_file_text[1]:
                                     # logging.debug(f"Indexing {name}")
-                                    guid = meta_file_text[1].replace("guid:", "").strip()
+                                    guid = (
+                                        meta_file_text[1].replace("guid:", "").strip()
+                                    )
 
                                     if is_sprites_file:
                                         image_path = str(filepath).replace(".meta", "")
@@ -148,7 +156,6 @@ class FileIndexer:
                                     else:
                                         asset_path = str(filepath).replace(".meta", "")
                                         ids_file.write(f"{asset_path},{guid}\n")
-
 
     def _organize_files(self, report_progress=None):
         armor_types = [

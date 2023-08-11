@@ -1,3 +1,6 @@
+"""Extra functionality used in several parsers"""
+
+
 def camel_case_split(text) -> str:
     """
     Splits a string on upper case characters.

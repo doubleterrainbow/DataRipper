@@ -6,18 +6,27 @@ from DesktopApp.asset_ripper_parser.parsers.furniture_parser import parse_furnit
 
 from DesktopApp.asset_ripper_parser.parsers.gift_table_parser import parse_gift_tables
 from DesktopApp.asset_ripper_parser.parsers.monsters import parse_monsters
-from DesktopApp.asset_ripper_parser.parsers.recipes import parse_recipes
-from DesktopApp.asset_ripper_parser.parsers.skill_tree import parse_skill_trees
+from DesktopApp.asset_ripper_parser.parsers.recipe_parser import parse_recipes
+from DesktopApp.asset_ripper_parser.parsers.skill_tree_parser import parse_skill_trees
 from DesktopApp.asset_ripper_parser.parsers.wallpaper import parse_wallpaper
 from DesktopApp.file_tags import FileTags
 
+
 @ParserRegistry.include("Recipes", [FileTags.RecipeList])
 def produce_recipes(file_indexer, report_progress, output_dir, files):
+    """Generates a text file of {{Recipe}} wiki templates given a list of
+    assets containing recipe references.
+
+    Args:
+        file_indexer (FileIndexer): used for looking up files from a GUID
+        report_progress (function): callback to run after every item is parsed
+        output_dir (str): path to directory where files will be written
+        files (dict): dict with a list of paths to assets containing "craftingRecipes"
+    """
     with open(
         os.path.join(output_dir, "recipe_templates.txt"), "w", encoding="utf-8"
     ) as output_file:
         recipe_list_files = files[FileTags.RecipeList.value]
-        # recipe_files = files[FileTags.Recipe.value]
 
         logging.debug("Found %d recipe lists", len(recipe_list_files))
         recipes = parse_recipes(file_indexer, recipe_list_files, report_progress)
@@ -26,15 +35,24 @@ def produce_recipes(file_indexer, report_progress, output_dir, files):
             output_file.write("\n\n")
 
 
-@ParserRegistry.include("Skills", [FileTags.SkillTree, FileTags.Skill])
+@ParserRegistry.include("Skills", [FileTags.SkillTree])
 def produce_skills(file_indexer, report_progress, output_dir, files):
-    with open(os.path.join(output_dir, "skills.txt"), "w") as output_file:
-        skill_tree_files = files[FileTags.SkillTree.value]
-        skill_files = files[FileTags.Skill.value]
+    """Creates a text file with all skills given a list of skill tree assets.
 
-        logging.debug(f"Found {len(skill_tree_files)} skill trees")
+    Args:
+        file_indexer (FileIndexer): used for lookup up files from their GUID reference.
+        report_progress (function): Called every time a skill tree has finished parsing
+        output_dir (str): path to the directory where resulting files will be stored
+        files (dict): contains a list of file paths to the skill tree assets
+    """
+    with open(
+        os.path.join(output_dir, "skills.txt"), "w", encoding="utf-8"
+    ) as output_file:
+        skill_tree_files = files[FileTags.SkillTree.value]
+
+        logging.debug("Found %d skill trees", len(skill_tree_files))
         skill_trees = parse_skill_trees(
-            file_indexer, skill_tree_files, skill_files, report_progress=report_progress
+            file_indexer, skill_tree_files, report_progress=report_progress
         )
         for skill_tree in skill_trees:
             output_file.write(str(skill_tree))
@@ -65,6 +83,15 @@ def produce_gift_tables(file_indexer, report_progress, output_dir, files):
 
 @ParserRegistry.include("Monsters", [FileTags.Enemy])
 def produce_monsters(file_indexer, report_progress, output_dir, files):
+    """Create a text file containing readable monster data from a
+    list of assets.
+
+    Args:
+        file_indexer (FileIndexer): used for file lookups
+        report_progress (function): callback to notify that an item has been processed.
+        output_dir (str): file path for the folder to put the resulting text files.
+        files (dict): file paths organized by FileTags
+    """
     with open(
         os.path.join(output_dir, "monsters.txt"), "w", encoding="utf-8"
     ) as output_file:
@@ -115,11 +142,17 @@ def produce_furniture(file_indexer, report_progress, output_dir, files):
 
 @ParserRegistry.include("Wallpaper", [FileTags.Wallpaper])
 def produce_wallpaper(file_indexer, report_progress, output_dir, files):
+    """Given a list of asset files, creates a text file containing details about wallpapers.
+
+    Args:
+        file_indexer (FileIndexer): used for file lookups
+        report_progress (function): callback to notify that an item has been processed.
+        output_dir (str): file path for the folder to put the resulting text files.
+        files (dict): file paths organized by FileTags
+    """
     with open(
         os.path.join(output_dir, "wallpaper.txt"), "w", encoding="utf-8"
     ) as output_file:
-        # furniture_files = files[FileTags.Furniture.value]
-        # decoration_files = files[FileTags.Decoration.value]
         wallpaper_files = files[FileTags.Wallpaper.value]
         logging.debug("Found %s wallpapers", len(wallpaper_files))
         wallpaper = parse_wallpaper(

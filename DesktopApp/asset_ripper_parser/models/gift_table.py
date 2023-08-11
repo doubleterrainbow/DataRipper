@@ -5,8 +5,8 @@ import itertools
 
 
 class GiftLevel(Enum):
-    """Represents how good a gift is.
-    """
+    """Represents how good a gift is."""
+
     LOVE = "love"
     LIKE = "like"
     NEUTRAL = "good"
@@ -16,6 +16,7 @@ class GiftLevel(Enum):
 
 class UniqueGiftResponse:
     """Represents a gift response not attached to the goodness of the item."""
+
     def __init__(self, item_name, response):
         self.item_name = item_name
         self.response = response
@@ -24,11 +25,12 @@ class UniqueGiftResponse:
 class GiftsAndResponse:
     """Holds dialogue(s) for gifting an item and
     which items produce that response.
-    
+
     The data defines list of responses, but all instances only contain one response.
-    We are using a list in case this changes in the future, and to align with the 
+    We are using a list in case this changes in the future, and to align with the
     data structure in the asset.
     """
+
     def __init__(self, level: GiftLevel) -> None:
         self.gift_level = level
         self.responses = []
