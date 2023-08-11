@@ -1,29 +1,26 @@
+"""Contains all functions that can intake list of asset filepaths and output human-friendly files"""
 import logging
 import os
-from DesktopApp.asset_ripper_parser.index_files import FileIndexer
-from DesktopApp.asset_ripper_parser.parsers.furniture import parse_furniture
+from DesktopApp.asset_ripper_parser.parser_registry import ParserRegistry
+from DesktopApp.asset_ripper_parser.parsers.furniture_parser import parse_furniture
 
-from DesktopApp.asset_ripper_parser.parsers.gift_tables import parse_gift_tables
+from DesktopApp.asset_ripper_parser.parsers.gift_table_parser import parse_gift_tables
 from DesktopApp.asset_ripper_parser.parsers.monsters import parse_monsters
-from DesktopApp.asset_ripper_parser.parsers.parser_registry import ParserRegistry
 from DesktopApp.asset_ripper_parser.parsers.recipes import parse_recipes
 from DesktopApp.asset_ripper_parser.parsers.skill_tree import parse_skill_trees
 from DesktopApp.asset_ripper_parser.parsers.wallpaper import parse_wallpaper
 from DesktopApp.file_tags import FileTags
 
-
 @ParserRegistry.include("Recipes", [FileTags.RecipeList])
 def produce_recipes(file_indexer, report_progress, output_dir, files):
-    with open(os.path.join(output_dir, "recipe_templates.txt"), "w") as output_file:
+    with open(
+        os.path.join(output_dir, "recipe_templates.txt"), "w", encoding="utf-8"
+    ) as output_file:
         recipe_list_files = files[FileTags.RecipeList.value]
         # recipe_files = files[FileTags.Recipe.value]
 
-        logging.debug(
-            f"Found {len(recipe_list_files)} recipe lists"
-        )
-        recipes = parse_recipes(
-            file_indexer, recipe_list_files, report_progress
-        )
+        logging.debug("Found %d recipe lists", len(recipe_list_files))
+        recipes = parse_recipes(file_indexer, recipe_list_files, report_progress)
         for recipe in recipes:
             output_file.write(str(recipe))
             output_file.write("\n\n")
@@ -46,9 +43,19 @@ def produce_skills(file_indexer, report_progress, output_dir, files):
 
 @ParserRegistry.include("Gift Tables", [FileTags.GiftTable])
 def produce_gift_tables(file_indexer, report_progress, output_dir, files):
-    with open(os.path.join(output_dir, "gift_tables.txt"), "w") as output_file:
+    """Create a text file containing readable gift tables for RNPCS.
+
+    Args:
+        file_indexer (FileIndexer): used for file lookups
+        report_progress (function): callback to notify that an item has been processed.
+        output_dir (str): file path for the folder to put the resulting text files.
+        files (dict): file paths organized by FileTags
+    """
+    with open(
+        os.path.join(output_dir, "gift_tables.txt"), "w", encoding="utf-8"
+    ) as output_file:
         gift_table_files = files[FileTags.GiftTable.value]
-        logging.debug(f"Found {len(gift_table_files)} gift tables")
+        logging.debug("Found %d gift tables", len(gift_table_files))
         gift_tables = parse_gift_tables(file_indexer, gift_table_files, report_progress)
 
         for table in gift_tables:
@@ -58,8 +65,9 @@ def produce_gift_tables(file_indexer, report_progress, output_dir, files):
 
 @ParserRegistry.include("Monsters", [FileTags.Enemy])
 def produce_monsters(file_indexer, report_progress, output_dir, files):
-    with open(os.path.join(output_dir, "monsters.txt"),
-              "w", encoding="utf-8") as output_file:
+    with open(
+        os.path.join(output_dir, "monsters.txt"), "w", encoding="utf-8"
+    ) as output_file:
         monster_files = files[FileTags.Enemy.value]
 
         logging.debug("Found %d monters", len(monster_files))
@@ -71,8 +79,8 @@ def produce_monsters(file_indexer, report_progress, output_dir, files):
 
 @ParserRegistry.include("Furniture", [FileTags.Placeable])
 def produce_furniture(file_indexer, report_progress, output_dir, files):
-    """Creates 2 files, 
-    one more readable which describes furniture, 
+    """Creates 2 files,
+    one more readable which describes furniture,
     and one with copy/paste wiki templates
 
     Args:
@@ -86,18 +94,19 @@ def produce_furniture(file_indexer, report_progress, output_dir, files):
     furniture = parse_furniture(
         indexer=file_indexer,
         placeables=placeable_files,
-        report_progress=report_progress
+        report_progress=report_progress,
     )
 
-    with open(os.path.join(output_dir, "furniture.txt"), "w", encoding="utf-8") as output_file:
+    with open(
+        os.path.join(output_dir, "furniture.txt"), "w", encoding="utf-8"
+    ) as output_file:
         for item in furniture:
             output_file.write(str(item))
             output_file.write("\n\n")
 
     with open(
-        os.path.join(output_dir, "furniture_summaries.txt"),
-        "w", encoding="utf-8"
-        ) as output_file:
+        os.path.join(output_dir, "furniture_summaries.txt"), "w", encoding="utf-8"
+    ) as output_file:
         for item in furniture:
             output_file.write(item.name + "\n")
             output_file.write(item.to_wiki_template())
@@ -106,15 +115,15 @@ def produce_furniture(file_indexer, report_progress, output_dir, files):
 
 @ParserRegistry.include("Wallpaper", [FileTags.Wallpaper])
 def produce_wallpaper(file_indexer, report_progress, output_dir, files):
-    with open(os.path.join(output_dir, "wallpaper.txt"), "w", encoding="utf-8") as output_file:
+    with open(
+        os.path.join(output_dir, "wallpaper.txt"), "w", encoding="utf-8"
+    ) as output_file:
         # furniture_files = files[FileTags.Furniture.value]
         # decoration_files = files[FileTags.Decoration.value]
         wallpaper_files = files[FileTags.Wallpaper.value]
         logging.debug("Found %s wallpapers", len(wallpaper_files))
         wallpaper = parse_wallpaper(
-            indexer=file_indexer,
-            items=wallpaper_files,
-            report_progress=report_progress
+            indexer=file_indexer, items=wallpaper_files, report_progress=report_progress
         )
 
         for item in wallpaper:

@@ -10,7 +10,7 @@ from tkinter import ttk
 from tkinter import filedialog
 from DesktopApp.asset_ripper_parser.index_files import FileIndexer
 from DesktopApp.asset_ripper_parser.outputs import included_parsers
-from DesktopApp.asset_ripper_parser.parsers.gift_tables import parse_gift_tables
+from DesktopApp.asset_ripper_parser.parsers.gift_table_parser import parse_gift_tables
 from DesktopApp.asset_ripper_parser.exported_file_parser import parse_exported_file
 from DesktopApp.asset_ripper_parser.parsers.parser_registry import ParserRegistry
 from DesktopApp.asset_ripper_parser.parsers.recipes import parse_recipes

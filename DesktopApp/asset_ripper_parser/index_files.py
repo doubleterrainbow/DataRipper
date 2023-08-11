@@ -34,13 +34,13 @@ class FileIndexer:
             str: File path aligned with guid
             None: if guid not in file
         """
-        with open(file, "r") as ids_file:
+        with open(file, "r", encoding="utf-8") as ids_file:
             for line in ids_file:
                 if f",{guid}" in line:
                     return line.split(",")[0]
 
         return None
-    
+
     def find_texture_path_from_guid(self, guid):
         return self._get_path_from_guid(self.texture_ids_file, guid)
 
@@ -51,14 +51,14 @@ class FileIndexer:
         return self._get_path_from_guid(self.ids_file, guid)
 
     def find_name_from_guid(self, guid):
-        with open(self.ids_file, "r") as ids_file:
+        with open(self.ids_file, "r", encoding="utf-8") as ids_file:
             while True:
                 line = ids_file.readline()
                 if not line:
                     break
 
                 if f",{guid}" in line:
-                    dirty_name = line.split(",")[0]
+                    dirty_name = line.split(",")[0].split("\\")[-1]
                     return re.sub(r"[0-9]+ - (.+)\.asset", "\\1", dirty_name).replace(
                         ".asset", ""
                     )
@@ -105,54 +105,50 @@ class FileIndexer:
         return files, folders
 
     def _map_guids(self, report_progress=None):
-        ids_file = open(self.ids_file, "w")
-        sprite_ids_file = open(self.sprite_ids_file, "w")
-        texture_ids_file = open(self.texture_ids_file, "w")
-
         count = 0
         increment = 1000
 
-        for path, subdirs, files in os.walk(self.assets_folder):
-            for name in files:
-                count += 1
-                if count % increment == 0 and report_progress is not None:
-                    report_progress()
-                    
-                if not name.endswith(".meta") or self.ignore_file(name):
-                    continue
+        with open(self.ids_file, "w", encoding="utf-8") as ids_file:
+            with open(self.sprite_ids_file, "w", encoding="utf-8") as sprite_ids_file:
+                with open(self.texture_ids_file, "w", encoding="utf-8") as texture_ids_file:
+                    for path, _, files in os.walk(self.assets_folder):
+                        for name in files:
+                            count += 1
+                            if count % increment == 0 and report_progress is not None:
+                                report_progress()
 
-                is_sprites_file = "Sprite" in path or (
-                    "icon" in name and ".asset" in name
-                )
-                is_texture_file = ".png" in name
-                is_data_file = [x for x in self.folders_to_index if x in path]
-                
-                is_valid_file = is_data_file or is_sprites_file or is_texture_file
-                
-                if not is_valid_file:
-                    # logging.debug(f"Skipping {name}")
-                    continue
+                            if not name.endswith(".meta") or self.ignore_file(name):
+                                continue
 
-                filepath = pathlib.PurePath(path, name)
-                with open(filepath, "r") as meta_file:
-                    meta_file_text = meta_file.readlines()
-                    if "guid:" in meta_file_text[1]:
-                        # logging.debug(f"Indexing {name}")
-                        guid = meta_file_text[1].replace("guid:", "").strip()
+                            is_sprites_file = "Sprite" in path or (
+                                "icon" in name and ".asset" in name
+                            )
+                            is_texture_file = ".png" in name
+                            is_data_file = [x for x in self.folders_to_index if x in path]
 
-                        if is_sprites_file:
-                            image_path = str(filepath).replace(".meta", "")
-                            sprite_ids_file.write(f"{image_path},{guid}\n")
-                        elif is_texture_file:
-                            image_path = str(filepath).replace(".meta", "")
-                            texture_ids_file.write(f"{image_path},{guid}\n")
-                        else:
-                            asset_path = str(filepath).replace(".meta", "")
-                            ids_file.write(f"{asset_path},{guid}\n")
+                            is_valid_file = is_data_file or is_sprites_file or is_texture_file
 
-        ids_file.close()
-        sprite_ids_file.close()
-        texture_ids_file.close()
+                            if not is_valid_file:
+                                # logging.debug(f"Skipping {name}")
+                                continue
+
+                            filepath = pathlib.PurePath(path, name)
+                            with open(filepath, "r", encoding="utf-8") as meta_file:
+                                meta_file_text = meta_file.readlines()
+                                if "guid:" in meta_file_text[1]:
+                                    # logging.debug(f"Indexing {name}")
+                                    guid = meta_file_text[1].replace("guid:", "").strip()
+
+                                    if is_sprites_file:
+                                        image_path = str(filepath).replace(".meta", "")
+                                        sprite_ids_file.write(f"{image_path},{guid}\n")
+                                    elif is_texture_file:
+                                        image_path = str(filepath).replace(".meta", "")
+                                        texture_ids_file.write(f"{image_path},{guid}\n")
+                                    else:
+                                        asset_path = str(filepath).replace(".meta", "")
+                                        ids_file.write(f"{asset_path},{guid}\n")
+
 
     def _organize_files(self, report_progress=None):
         armor_types = [
@@ -303,7 +299,11 @@ class FileIndexer:
                                         tags += f",{FileTags.Decoration.value}"
                                     if "wallpaper:" in text:
                                         tags += f",{FileTags.Wallpaper.value}"
-                                    if "useAbleByPlayer: 1" in text and "_decoration:" in text and "_itemData:" in text:
+                                    if (
+                                        "useAbleByPlayer: 1" in text
+                                        and "_decoration:" in text
+                                        and "_itemData:" in text
+                                    ):
                                         tags += f",{FileTags.Placeable.value}"
 
                                 except:

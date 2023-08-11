@@ -127,7 +127,11 @@ def replace_placeholders_in_description(skill_component: dict, description: str)
 
         return updated_description
     except:
-        logging.error(f"Unable to populate description placeholders for %s", description, exc_info=True)
+        logging.error(
+            f"Unable to populate description placeholders for %s",
+            description,
+            exc_info=True,
+        )
         return description
 
 

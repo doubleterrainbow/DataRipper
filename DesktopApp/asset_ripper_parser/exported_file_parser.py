@@ -5,7 +5,7 @@ import yaml
 def parse_exported_file(filepath):
     """Returns a list of dicts containing parsed yaml.
     List sections are split on the "--- !u!" line.
-    
+
     There can be multiple "MonoBehaviour" sections.
 
     Args:
