@@ -1,7 +1,7 @@
 """Contains functionality to convert assets to Monsters"""
 import logging
 import pprint
-from asset_ripper_parser.exported_file_parser import parse_exported_file
+from asset_ripper_parser.parse_exported_file import parse_exported_file
 from asset_ripper_parser.index_files import FileIndexer
 from asset_ripper_parser.models.monster import Monster
 

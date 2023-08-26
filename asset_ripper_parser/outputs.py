@@ -1,4 +1,4 @@
-"""Contains all functions that can intake list of asset filepaths and output human-friendly files"""
+"""Contains all functions that can intake list of asset file paths and output human-friendly files"""
 import logging
 import os
 from asset_ripper_parser.file_tags import FileTagLabel
@@ -16,7 +16,7 @@ from asset_ripper_parser.parsers.monster_spawn_parser import (
     parse_monster_spawns,
 )
 from asset_ripper_parser.parsers.quest_parser import parse_bulletin_quests, parse_quests
-from asset_ripper_parser.parsers.recipe_parser import parse_recipes
+from asset_ripper_parser.parsers.recipe_parser import parse_recipes, parse_skill_tomes
 from asset_ripper_parser.parsers.shop_parser import (
     parse_merchants,
 )
@@ -29,7 +29,7 @@ def produce_bulletin_quests(indexer, report_progress, output_dir, files):
     """TODO
 
     Args:
-        file_indexer (FileIndexer): not needed for this function
+        indexer (FileIndexer): used for file lookups
         report_progress (function): callback to notify that an item has been processed.
         output_dir (str): file path for the folder to put the resulting text files.
         files (dict): file paths organized by FileTags
@@ -53,7 +53,7 @@ def produce_quests(indexer, report_progress, output_dir, files):
     """TODO
 
     Args:
-        file_indexer (FileIndexer): not needed for this function
+        indexer (FileIndexer): usedf for file lookups
         report_progress (function): callback to notify that an item has been processed.
         output_dir (str): file path for the folder to put the resulting text files.
         files (dict): file paths organized by FileTags
@@ -90,6 +90,31 @@ def produce_recipes(file_indexer, report_progress, output_dir, files):
 
         logging.debug("Found %d recipe lists", len(recipe_list_files))
         recipes = parse_recipes(file_indexer, recipe_list_files, report_progress)
+        for recipe in recipes:
+            output_file.write(str(recipe))
+            output_file.write("\n\n")
+
+
+@ParserRegistry.include("Skill Tome Recipes", [FileTagLabel.SKILL_TOME])
+def produce_skill_tome_recipes(file_indexer, report_progress, output_dir, files):
+    """Generates a text file of {{Recipe}} wiki templates given a list of
+    assets containing recipe references.
+
+    Args:
+        file_indexer (FileIndexer): used for looking up files from a GUID
+        report_progress (function): callback to run after every item is parsed
+        output_dir (str): path to directory where files will be written
+        files (dict): dict with a list of paths to assets containing "craftingRecipes"
+    """
+    with open(
+        os.path.join(output_dir, "recipe_skill_tome_templates.txt"),
+        "w",
+        encoding="utf-8",
+    ) as output_file:
+        recipe_files = files[FileTagLabel.SKILL_TOME]
+
+        logging.debug("Found %d skill tome recipes", len(recipe_files))
+        recipes = parse_skill_tomes(file_indexer, recipe_files, report_progress)
         for recipe in recipes:
             output_file.write(str(recipe))
             output_file.write("\n\n")
@@ -259,7 +284,7 @@ def produce_monster_spawns(_, report_progress, output_dir, files):
     list of assets.
 
     Args:
-        file_indexer (FileIndexer): not needed for this function
+        _ (FileIndexer): not needed for this function
         report_progress (function): callback to notify that an item has been processed.
         output_dir (str): file path for the folder to put the resulting text files.
         files (dict): file paths organized by FileTags
@@ -286,8 +311,8 @@ def produce_furniture(file_indexer, report_progress, output_dir, files):
     Args:
         file_indexer (FileIndexer): indexer for file lookups
         report_progress (function): function that increments progress bars
-        output_dir (str): path of directory to place created files
-        files (list[str]): list of file paths to parse
+        output_dir (str): path of directory to place created text
+        files (dict): map of {FileTagLabel: list[str]} with filepaths to parse
     """
     placeable_files = files[FileTagLabel.PLACEABLE]
     logging.debug("Found %s furniture items", len(placeable_files))

@@ -1,7 +1,7 @@
 """All methods used to parse GiftTables."""
 import logging
 import re
-from asset_ripper_parser.exported_file_parser import parse_exported_file
+from asset_ripper_parser.parse_exported_file import parse_exported_file
 from asset_ripper_parser.index_files import FileIndexer
 from asset_ripper_parser.models.quest import BulletinBoardQuest, Quest
 from asset_ripper_parser.models.recipe import Ingredient

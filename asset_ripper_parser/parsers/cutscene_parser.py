@@ -3,7 +3,7 @@ import logging
 import os
 import pprint
 import re
-from asset_ripper_parser.exported_file_parser import parse_exported_file
+from asset_ripper_parser.parse_exported_file import parse_exported_file
 from asset_ripper_parser.index_files import FileIndexer
 from asset_ripper_parser.models.cutscene import Cutscene, CutsceneDialogue
 from asset_ripper_parser.models.quest import BulletinBoardQuest, Quest
@@ -12,7 +12,8 @@ from asset_ripper_parser.utils import camel_case_split
 
 
 def clean_text(text):
-    """Removes junk from text, like italic formatting characters and colors.
+    """Replace in-game markers with wiki markers. Notably, line breaks
+    and player name.
 
     Args:
         text (str): dialogue from game.
@@ -27,19 +28,6 @@ def parse_cutscene(path: str):
     filename = os.path.basename(path)
     cutscene = Cutscene(camel_case_split(filename.replace(".cs", "")))
     with open(path, "r", encoding="utf-8") as cutscene_file:
-        # dialogues = []
-        # npc = None
-        # for line in cutscene_file.readlines():
-        #     # print("line: ", line)
-        #     if re.search(r"NPC\.\w+\.Name", line) is not None:
-        #         npc = line.split("\"", 2)[1]
-        #     if re.search(r"Cutscene\.\w+\.Option", line) is not None:
-        #         dialogues.append("> " + line.split("\"", 2)[1])
-        #     if re.search(r"Cutscene\.\w+\.Dialogue", line) is not None:
-        #         if npc is None:
-        #             npc = camel_case_split(filename).split(" ", 1)[0]
-        #         dialogues.append(f"{npc}: " + line.split("\"", 2)[1])
-
         code = cutscene_file.read()
 
         # Define data structure to hold dialogue information
@@ -48,12 +36,20 @@ def parse_cutscene(path: str):
         dialogue_code = code.split("SceneRoutine()", 2)[1]
         dialogue_code = dialogue_code.split("this.Complete();", 1)[0]
 
-        npc_marker = r"(?:DialogueController\.Instance\.SetDialogueBustVisuals\(this\.|DialogueController\.Instance\.SetDefaultBox\(\(string\)TranslationLayer\.TranslateObject\(\")"
+        npc_marker = (
+            r"(?:DialogueController\.Instance\.SetDialogueBustVisuals\("
+            r"this\.|DialogueController\.Instance\.SetDefaultBox\(\("
+            r"string\)TranslationLayer\.TranslateObject\(\")"
+        )
         for talking_npc in re.split(npc_marker, dialogue_code):
-            npc = re.split(r"[\"\.]", talking_npc, maxsplit=1)[0].capitalize()
+            npc = re.split(r"[\".]", talking_npc, maxsplit=1)[0].capitalize()
 
             # Extract dialogue parts using regular expressions
-            dialogue_pattern = r"base\.(?:DialogueSingle|DialogueSingleNoResponse)\((?:\(string\)TranslationLayer\.TranslateObject\()?\"(.*?)\", ([\w\s\d;\/\"?.,<>\[\]\(\)\=\{\}'\-!]*?)(?:false|true)\);"
+            dialogue_pattern = (
+                r"base\.(?:DialogueSingle|DialogueSingleNoResponse)\((?:\("
+                r"string\)TranslationLayer\.TranslateObject\()?\"(.*?)\", ([\w\s\d;\/\"?.,"
+                r"<>\[\]\(\)\=\{\}'\-!]*?)(?:false|true)\);"
+            )
             dialogue_matches = re.findall(dialogue_pattern, talking_npc, re.DOTALL)
 
             print(f"{len(dialogue_matches)} dialogues when talking to {npc}")
@@ -73,7 +69,10 @@ def parse_cutscene(path: str):
                     options_data.append({"text": option_text, "hearts": 0})
 
                 # Extract options using regular expression
-                options_pattern = r'new ValueTuple<string, UnityAction>\(.*?"(.*?)", ".*?"\), delegate\(\)[\s\{\}]*(?:response = \d;)?(?:this\.\w+\.AddRelationship\((-?\d)f, 0f\))?'
+                options_pattern = (
+                    r'new ValueTuple<string, UnityAction>\(.*?"(.*?)", ".*?"\), delegate\(\)[\s\{\}]*('
+                    r"?:response = \d;)?(?:this\.\w+\.AddRelationship\((-?\d)f, 0f\))?"
+                )
                 options_matches = re.findall(options_pattern, options_args)
 
                 for option_match in options_matches:
@@ -91,29 +90,16 @@ def parse_cutscene(path: str):
 
         cutscene.dialogues = dialogue_data
 
-        # dialogue = CutsceneDialogue()
-        # for line in cutscene_file.readlines():
-        #     if "NPC." in line:
-        #         dialogue.npc = line.split("\"", 2)[1]
-        #         npc = dialogue.npc
-        #     elif ".Option" in line:
-        #         dialogue.options.append(line.split("\"", 2)[1])
-        #     elif ".Dialogue" in line:
-        #         dialogue.responses.append(line.split("\"", 2)[1])
-        #     elif dialogue.npc is None:
-        #         dialogue.npc = npc
-
     return cutscene
 
 
-def parse_cutscenes(filepaths: list[str], report_progress=None):
-    """Given a list of file paths, returns a list of Quest objects.
+def parse_cutscenes(filepaths: list[str], report_progress=None) -> list[Cutscene]:
+    """Given a list of file paths, returns a list of cutscene objects.
 
     Each file is opened and read for relevant data.
 
     Args:
-        indexer (FileIndexer): used for file lookups
-        filepaths (list[str]): file paths like <RNPC_NAME>GiftTable.asset
+        filepaths (list[str]): file paths like <CUTSCENE_NAME>Cutscene.cs
         report_progress (function, optional): Runs every time a gift table is parsed.
                                             Defaults to None.
 

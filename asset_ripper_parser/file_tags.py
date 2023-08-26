@@ -39,6 +39,7 @@ class FileTagLabel(Enum):
     SEED = "seed"
     SKILL = "skill"
     SKILL_TREE = "skill tree"
+    SKILL_TOME = "skill tome"
     STATTED = "statted"
     WALLPAPER = "wallpaper"
 
@@ -144,6 +145,9 @@ file_tags = [
     FileTag(FileTagLabel.SEED, filename_matcher=lambda x: " Seed" in x),
     FileTag(FileTagLabel.SKILL, text_matcher=lambda x: "nodePoints:" in x),
     FileTag(FileTagLabel.SKILL_TREE, filename_matcher=lambda x: "SkillTree.asset" in x),
+    FileTag(FileTagLabel.SKILL_TOME, filename_matcher=lambda x:
+        "Recipe " in x and "Skill Tome.asset" in x
+    ),
     FileTag(FileTagLabel.STATTED, text_matcher=lambda x: "stats" in x),
     FileTag(FileTagLabel.SCENE, filename_matcher=lambda x: x.endswith(".unity")),
     FileTag(FileTagLabel.WALLPAPER, text_matcher=lambda x: "wallpaper:" in x),

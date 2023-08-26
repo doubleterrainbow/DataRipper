@@ -1,6 +1,6 @@
 """All functionality to convert furniture asset filepaths into Furniture objects"""
 import logging
-from asset_ripper_parser.exported_file_parser import parse_exported_file
+from asset_ripper_parser.parse_exported_file import parse_exported_file
 from asset_ripper_parser.index_files import FileIndexer
 from asset_ripper_parser.models.furniture import Furniture
 from asset_ripper_parser.parsers.item_parser import parse_item

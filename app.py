@@ -11,7 +11,7 @@ from tkinter import filedialog
 from asset_ripper_parser.index_files import FileIndexer
 from asset_ripper_parser.outputs import included_parsers
 from asset_ripper_parser.parsers.gift_table_parser import parse_gift_tables
-from asset_ripper_parser.exported_file_parser import parse_exported_file
+from asset_ripper_parser.parse_exported_file import parse_exported_file
 from asset_ripper_parser.parsers.parser_registry import ParserRegistry
 from asset_ripper_parser.parsers.recipe_parser import parse_recipes
 from asset_ripper_parser.parsers.skill_tree_parser import parse_skill_trees

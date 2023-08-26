@@ -1,7 +1,7 @@
 """Functions for parsing shop asset files."""
 import logging
 import os
-from asset_ripper_parser.exported_file_parser import parse_exported_file
+from asset_ripper_parser.parse_exported_file import parse_exported_file
 from asset_ripper_parser.utils import camel_case_split
 from asset_ripper_parser.index_files import FileIndexer
 from asset_ripper_parser.models.item import Item

@@ -1,7 +1,7 @@
 import itertools
 import logging
 import re
-from asset_ripper_parser.exported_file_parser import parse_exported_file
+from asset_ripper_parser.parse_exported_file import parse_exported_file
 from asset_ripper_parser.index_files import FileIndexer
 from asset_ripper_parser.models.item import Item
 from asset_ripper_parser.parse_sprite_sheet import parse_sprite_asset

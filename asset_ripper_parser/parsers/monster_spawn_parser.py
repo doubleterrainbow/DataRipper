@@ -1,13 +1,21 @@
 """Functionality for reading scene files and outputting what enemies spawn there."""
 import logging
 import os
-from asset_ripper_parser.exported_file_parser import parse_exported_file
+from asset_ripper_parser.parse_exported_file import parse_exported_file
 from asset_ripper_parser.models.location import Location, MonsterSpawn
 from asset_ripper_parser.utils import camel_case_split
 
 
 def get_monster_names(monster_paths: list[str]) -> dict:
-    """Creates a dictionary mapping spawners to monster names"""
+    """
+    Creates a dictionary mapping spawners to monster names
+
+    Args:
+        monster_paths (list[str]): file paths of enemies containing spawner names
+
+    Returns:
+        dict: Map of enemy spawner ID to enemy name
+    """
     monster_names = {}
     for monster_path in monster_paths:
         parsed_monster = parse_exported_file(monster_path)
@@ -34,6 +42,7 @@ def parse_monster_spawns(
 
     Args:
         paths (list[str]): all ".unity" files
+        monster_paths (list[str]): monster asset files for looking up name from spawner
         report_progress (function, optional):   Called when an location has been parsed.
                                                 Defaults to None.
 
