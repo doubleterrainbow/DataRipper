@@ -1,10 +1,11 @@
 """All methods related to parsing Recipes from asset file paths."""
 import logging
+import os
 import pprint
 import re
-from DesktopApp.asset_ripper_parser.exported_file_parser import parse_exported_file
-from DesktopApp.asset_ripper_parser.index_files import FileIndexer
-from DesktopApp.asset_ripper_parser.models.recipe import Ingredient, Recipe
+from asset_ripper_parser.exported_file_parser import parse_exported_file
+from asset_ripper_parser.index_files import FileIndexer
+from asset_ripper_parser.models.recipe import Ingredient, Recipe
 
 
 def parse_recipe(indexer: FileIndexer, path: str) -> Recipe:
@@ -99,7 +100,7 @@ def parse_recipes(
                     recipe = parse_recipe(indexer, recipe_path)
                     if recipe is not None:
                         recipe.workbench = (
-                            path.split("\\")[-1]
+                            os.path.basename(path)
                             .replace("RecipeList_", "")
                             .replace("RecipeList _", "")
                             .replace(".asset", "")

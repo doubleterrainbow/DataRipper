@@ -1,8 +1,9 @@
 """All functionality to convert furniture asset filepaths into Furniture objects"""
 import logging
-from DesktopApp.asset_ripper_parser.exported_file_parser import parse_exported_file
-from DesktopApp.asset_ripper_parser.index_files import FileIndexer
-from DesktopApp.asset_ripper_parser.models.furniture import Furniture
+from asset_ripper_parser.exported_file_parser import parse_exported_file
+from asset_ripper_parser.index_files import FileIndexer
+from asset_ripper_parser.models.furniture import Furniture
+from asset_ripper_parser.parsers.item_parser import parse_item
 
 
 def parse_decoration_data(
@@ -77,23 +78,8 @@ def parse_item_data(
 
     if item_filepath is not None:
         item_component = parse_exported_file(item_filepath)[0]["MonoBehaviour"]
-
-        furniture.name = item_component["name"].strip()
-        furniture.item_id = item_component["id"]
-        furniture.stack_size = item_component["stackSize"]
-        furniture.hearts = item_component["hearts"]
-        furniture.rarity = item_component["rarity"]
-        furniture.is_dlc = item_component["isDLCItem"] == 1
-
-        if item_component["sellPrice"] > 0:
-            furniture.sells_for = item_component["sellPrice"]
-            furniture.sell_type = "Coins"
-        elif item_component["orbsSellPrice"] > 0:
-            furniture.sells_for = item_component["orbsSellPrice"]
-            furniture.sell_type = "Orbs"
-        elif item_component["ticketSellPrice"] > 0:
-            furniture.sells_for = item_component["ticketSellPrice"]
-            furniture.sell_type = "Tickets"
+        furniture = parse_item(indexer, item_component, furniture)
+        furniture.name = item_component["name"]
 
     return furniture
 

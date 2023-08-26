@@ -2,9 +2,9 @@
 import logging
 import pprint
 import re
-from DesktopApp.asset_ripper_parser.exported_file_parser import parse_exported_file
-from DesktopApp.asset_ripper_parser.index_files import FileIndexer
-from DesktopApp.asset_ripper_parser.models.gift_table import (
+from asset_ripper_parser.exported_file_parser import parse_exported_file
+from asset_ripper_parser.index_files import FileIndexer
+from asset_ripper_parser.models.gift_table import (
     GiftLevel,
     GiftTable,
     UniqueGiftResponse,

@@ -1,7 +1,7 @@
 """Contains classes used to represent information about craftables in game."""
 
-from DesktopApp.asset_ripper_parser.utils import camel_case_split
-from DesktopApp.asset_ripper_parser.parsers.skill_progress import skill_progress_markers
+from asset_ripper_parser.utils import camel_case_split
+from asset_ripper_parser.parsers.skill_progress import skill_progress_markers
 
 
 class Ingredient:

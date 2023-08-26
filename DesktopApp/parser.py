@@ -7,10 +7,10 @@ import math
 import time
 import json
 import logging
-from DesktopApp.file_tags import FileTags
+from asset_ripper_parser.file_tags import FileTags
 from DesktopApp.item_category import ItemCategory
 from DesktopApp.datum import Datum
-from DesktopApp.assets_parser import AssetsParser
+from assets_parser import AssetsParser
 from DesktopApp.progress import Progress
 
 class Parser:

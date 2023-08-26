@@ -112,11 +112,11 @@ def getSeed(jsonPath):
     tickets_match = re.search(r'([0-9]+) <sprite=\"ticket_icon', data['helpDescription'])
     if tickets_match is not None:
         seed.ticket_sell_price = int(tickets_match.group(1))
-    
+
     orbs_match = re.search(r'([0-9]+) <sprite=\"orb_icon', data['helpDescription'])
     if orbs_match is not None:
         seed.orb_sell_price = int(orbs_match.group(1))
-    
+
     yield_match = re.search(r"yield[<>=a-zA-Z\s]+([0-9]+)", data['helpDescription'])
     if yield_match is not None:
         seed.crop_yield = int(yield_match.group(1))

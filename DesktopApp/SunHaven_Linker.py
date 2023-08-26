@@ -25,7 +25,7 @@ from DesktopApp.Modules import SunHaven_Tool as ToolParser
 from DesktopApp.Modules import SunHaven_Quest as QuestParser
 from DesktopApp.Modules import SunHaven_Book as BookParser
 from DesktopApp.datum import Datum
-from DesktopApp.file_tags import FileTags
+from asset_ripper_parser.file_tags import FileTags
 from DesktopApp.parser import Parser
 from DesktopApp.progress import Progress
 from DesktopApp.linker_registry import LinkerRegistry
@@ -86,62 +86,7 @@ def linkDialogues(parser, srcPaths, dstPath):
     heart = '{{il|Heart|icon|size=14px}} Points'
     relationshipStr = """<span style="color: {0};">'''{1}'''</span>"""
 
-    def replaceNotes(line):
-        note = ''
-        if '//Relationship' in line:
-            rString = line[line.index('//Relationship'):]
-            line = line[:-len(rString)].rstrip()
-            rTokens = rString.split(' ')
-            for v in rTokens:
-                try:
-                    note = ' '+relationshipStr.format(green if int(v) > 0 else red, ('+' if int(v) > 0 else '')+v+' '+heart)
-                    break
-                except ValueError:
-                    continue
-        elif '//Emote' in line:
-            rString = line[line.index('//Emote'):]
-            line = line[:-len(rString)].rstrip()
-        elif '//AddItem' in line:
-            rString = line[line.index('//AddItem'):]
-            line = line[:-len(rString)].rstrip()
-            rTokens = rString.split(' ')
-            note = ' '+relationshipStr.format(red, '+ {{il|'+rTokens[2]+'}}')
-        elif '//Quest' in line:
-            rString = line[line.index('//Quest'):]
-            line = line[:-len(rString)].rstrip()
-            rTokens = rString.split(' ')
-            note = ' '+relationshipStr.format(quest, 'Quest: [['+rTokens[2]+']]')
-        elif '//Charon' in line:
-            line = line[:line.index('//Charon')].rstrip()
-        return (line + note).strip()
-
-    parser.on_progress_update(Progress( f"Finished replacing wierd text in dialogues..."))
-
-    def addIcons(filename):
-        season = None
-        if 'Spring' in filename:
-            season = 'icon_spring'
-        elif 'Summer' in filename:
-            season = 'icon_summer'
-        elif 'Fall' in filename:
-            season = 'icon_fall'
-        elif 'Winter' in filename:
-            season = 'icon_winter'
-
-        relationship = None
-        if 'Dating' in filename:
-            relationship = 'Love Letter'
-        elif 'Married' in filename:
-            relationship = 'Wedding Ring'
-        
-        icons = ''
-        if relationship:
-            icons = ' {{{{il|{0}|icon}}}}'.format(relationship)
-        if season:
-            icons += ' {{{{il|{0}|icon}}}}'.format(season)
-        
-        return icons
-
+    
     parser.on_progress_update(Progress( f"Finished adding icons in dialogues..."))
 
     os.makedirs(os.path.dirname(dstPath), exist_ok=True)
@@ -166,53 +111,6 @@ def linkDialogues(parser, srcPaths, dstPath):
     f.close()
     
     parser.on_progress_update(Progress( f"Finished parsing dialogues..."))
-
-@LinkerRegistry.register("Drop Tables", [FileTags.DropTable])
-def linkDropTables(parser: Parser, srcPaths, dstPath):
-
-    objList = jsonParse(parser, srcPaths[FileTags.DropTable.value], DropTableParser.getDropTable)
-    logging.debug("Found " + str(len(objList)) + " enemies with drop tables.")
-    parser.on_progress_update(Progress( f"Found {str(len(objList))} enemies with drop tables."))
-
-    datumList = []
-    for o in objList:
-        datumList.extend([x for x in o.drops])
-    parser.assets_parser.csvParseAssetFile(datumList)
-    
-    parser.on_progress_update(Progress( f"Writing drop tables to file..."))
-
-    os.makedirs(os.path.dirname(dstPath), exist_ok=True)
-    f = open(dstPath, "w")
-    for obj in objList:
-        f.write(str(obj) + '\n')
-    f.close()
-
-    enemies = [obj for obj in objList if isinstance(obj, DropTableParser.Enemy)]
-    
-    with open(dstPath.replace(".txt", "_formatted.txt"), 'w') as formatted_file:
-        written_tables = []
-        
-        enemies.sort(key=lambda x: x.name)
-        for key, group in itertools.groupby(enemies, key=lambda x: x.name):
-            sorted_levels = [item for item in group]
-            sorted_levels.sort(key=lambda x: x.level)
-            written_levels = []
-            result = "{{Tabber"
-            
-            for dropper in sorted_levels:
-                table_name = dropper.name.rstrip()
-                
-                if table_name != '' and dropper not in written_tables and dropper.level not in written_levels:
-                    result += (f"\n|Level {dropper.level.replace('.0', '')}\n|")
-                    result += dropper.to_wiki_format()
-                    
-                    written_levels.append(dropper.level)
-                    written_tables.append(dropper)
-            
-            result += "\n}}\n\n"
-            formatted_file.write(result)
-    
-    parser.on_progress_update(Progress( f"Finished parsing drop tables..."))
 
 @LinkerRegistry.register("Destructibles", [FileTags.Destructible])
 def linkDestructibles(parser: Parser, srcPaths, dstPath):
@@ -310,97 +208,6 @@ def linkAnimals(parser: Parser, srcPaths, dstPath):
     f.close()
     
     parser.on_progress_update(Progress( f"Finished parsing animals..."))
-
-@LinkerRegistry.register("Items", [FileTags.Item])
-def linkItems(parser, srcPaths, dstPath):
-    items = jsonParse(parser, srcPaths[FileTags.Item.value], ItemParser.getItem)
-    parser.on_progress_update(Progress( f"Organizing {len(items)} items..."))
-    logging.debug("Found " + str(len(items)) + " items.")
-    
-    items.sort(key=operator.attrgetter('gID'))
-    
-    written_items = []
-    unique_items = []
-    for item in items:
-        name = re.sub(r"\((Up|L|R)\)", "", item.name).strip()
-        if name not in written_items:
-            unique_items.append(item)
-            written_items.append(name)
-    
-    parser.on_progress_update(Progress( f"Finding item sprites..."))
-    
-    count = 0
-    
-    with open(parser.spritesPath, 'r') as sprites_file:
-        sprites = sprites_file.readlines()
-        for item in unique_items:
-            count += 1
-            if count % 100 == 0:
-                parser.on_progress_update(Progress(f"Found sprites for {count}/{len(unique_items)}"))
-                
-            
-            matching_sprite = None
-            for x in sprites:
-                if x.startswith(f"{item.icon_pID},"):
-                    matching_sprite = x
-                    break
-            if matching_sprite is not None:
-                item.icon_filepath = matching_sprite.split(',')[2].strip()
-                
-            if isinstance(item, ItemParser.Furniture):
-                rotated_versions = [x for x in items if x.name == f"{item.name} (L)" or x.name == f"{item.name} (R)"]
-                if rotated_versions:
-                    item.rotateable = True
-                    
-                try:
-                    set_candidates = [x.name for x in items if x.name.startswith(item.name.split(" ")[0]) and x.name != item.name]
-                    if len(set_candidates) > 2:
-                        set_name_length = len(set(item.name.split(" ")).intersection(set_candidates[1].split(" ")))
-                        item.part_of_set = " ".join(item.name.split(" ")[0:(set_name_length - 1)])
-                except:
-                    logging.error(f"Error finding set for {item.name}", exc_info=True)               
-                
-    parser.on_progress_update(Progress( f"Writing items to file..."))
-    os.makedirs(os.path.dirname(dstPath), exist_ok=True)
-    f = open(dstPath, "w")
-    for item in unique_items:
-        f.write(str(item) + '\n')
-
-    f.close()
-    
-    with open(dstPath.replace(".txt", "_description_template.txt"), 'w') as descriptions_file:
-        unique_items.sort(key=lambda x: x.name)
-        default = "    |#default=Edit in https://sun-haven.fandom.com/wiki/Template:Description <!--if the item doesn't have a listing here, it will show this-->}}\n"
-        
-        descriptions_file.write("<includeonly><!--1.2.0-->{{#switch:{{lc:{{#sub:{{{1|{{PAGENAME}}}}}|0|1}} }}\n")
-        descriptions_file.write("<!-- example: |name(lower case letters)=Description -->\n")
-
-        for key, group in itertools.groupby(unique_items, lambda x: x.name.strip().lower()[0]):
-            descriptions_file.write(f"|{key}=" + "{{#switch:{{lc:{{{1|{{PAGENAME}}}}}}}\n")
-            for shared_description_key, shared_descriptions in itertools.groupby(group, lambda x: x.description):
-                item_names = set([x.name.lower() for x in shared_descriptions])
-                clean_description = re.sub(r"<color=#[A-Z0-9]+>\([\w\s]+\)<\/color>", "", shared_description_key).replace("</b>", "'''").replace("<b>", "'''")
-                clean_description = re.sub(r'\s{2,}', ' ', clean_description)
-                
-                if clean_description != "":
-                    descriptions_file.write(f"    |{'|'.join(item_names)}={clean_description}\n")
-            descriptions_file.write(default)
-            
-        descriptions_file.write("|#default=Edit in https://sun-haven.fandom.com/wiki/Template:Description")
-        descriptions_file.write("}}</includeonly><noinclude>{{documentation}}</noinclude>")
-    
-    with open(dstPath.replace(".txt", ".csv"), 'w') as csvfile:
-        item_writer = csv.writer(csvfile)
-        for item in unique_items:
-            item_writer.writerow(item.to_csv_list())
-    
-    with open(dstPath.replace(".txt", "_furniture.csv"), 'w') as furniture_file:
-        furniture_writer = csv.writer(furniture_file)
-        for item in unique_items:
-            if isinstance(item, ItemParser.Furniture):
-                furniture_writer.writerow(item.to_csv_list())
-    
-    parser.on_progress_update(Progress( f"Finished parsing items..."))
 
 @LinkerRegistry.register("Fishing Nets", [FileTags.FishNet])
 def linkFishingNets(parser: Parser, srcPaths, dstPath):
@@ -605,247 +412,9 @@ def linkFishSpawners(parser: Parser, srcPaths, dstPath):
             
     parser.on_progress_update(Progress(f"Finished writing fish spawners to file..."))    
 
-@LinkerRegistry.register("Gift Tables", [FileTags.GiftTable])
-def linkGiftTables(parser: Parser, srcPaths, dstPath):
-    objList = jsonParse(parser, srcPaths[FileTags.GiftTable.value], GiftTableParser.getGiftTable)
-    logging.debug("Found " + str(len(objList)) + " Gift Tables.")
-
-    
-    datumList = []
-    for o in objList:
-        datumList.extend([x for x in o.love])
-        datumList.extend([x for x in o.like])
-        datumList.extend([x for x in o.good])
-        datumList.extend([x for x in o.dislike])
-        datumList.extend([x for x in o.unique])
-    parser.assets_parser.csvParseAssetFile(datumList)
-    
-    parser.on_progress_update(Progress( f"Writing gift tables to file..."))
-    os.makedirs(os.path.dirname(dstPath), exist_ok=True)
-    f = open(dstPath, "w")
-    for obj in objList:
-        f.write(obj.filename + '\n')
-        f.write('Love:\n')
-        for item in obj.loveResponses:
-            f.write(": " + item + '\n')
-        for item in obj.love:
-            f.write("- " + item.name + '\n')
-            
-        f.write('Like:\n')
-        for item in obj.likeResponses:
-            f.write(": " + item + '\n')
-        for item in obj.like:
-            f.write("- " + item.name + '\n')
-            
-        f.write('Good:\n')
-        for item in obj.goodResponses:
-            f.write(": " + item + '\n')
-        for item in obj.good:
-            f.write("- " + item.name + '\n')
-            
-        f.write('Dislike:\n')
-        for item in obj.dislikeResponses:
-            f.write(": " + item + '\n')
-        for item in obj.dislike:
-            f.write("- " + item.name + '\n')
-            
-        f.write('Unique:\n')
-        for item in obj.unique:
-            f.write("- " + item.name + ": " + item.response + '\n')
-
-        f.write('Birthday:\n')
-        f.write("Month/Day: " + obj.birthMonth + "/" + obj.birthDay + '\n')
-        for item in obj.birthdayResponses:
-            f.write("- " + item + '\n')
-        f.write('\n')
-    f.close()
-    parser.on_progress_update(Progress( f"Finished writing gift tables to file..."))
-
-@LinkerRegistry.register("Merchants", [FileTags.MerchantTable])
-def linkMerchants(parser: Parser, srcPaths, dstPath):
-
-    objList = jsonParse(parser, srcPaths[FileTags.MerchantTable.value], MerchantParser.getMerchant)
-
-    logging.debug("Found " + str(len(objList)) + " Merchants.")
-
-    parser.on_progress_update(Progress( f"Found " + str(len(objList)) + " Merchants."))
-    
-    datumList = []
-    for o in objList:
-        datumList.extend([x for x in o.items])
-    parser.assets_parser.csvParseAssetFile(datumList)
-    parser.on_progress_update(Progress( f"Writing merchants to file..."))
-    
-    os.makedirs(os.path.dirname(dstPath), exist_ok=True)
-    # f = open(dstPath, "w")
-    # for obj in objList:
-    #     f.write(str(obj) + '\n')
-    # f.close()
-    parser.on_progress_update(Progress( f"Finished writing merchants to file..."))
-    
-    with open(dstPath.replace(".txt", "_formatted.txt"), "w") as formatted_file:
-        for merchant in objList:
-            formatted_file.write(f"\n{merchant.filename}")
-            formatted_file.write("\n{{Shop/header|shop=SHOP NAME HERE}}")
-            for item in merchant.items:
-                formatted_file.write("\n{{Shop|" + f"{item.name}|{item.value}|{item.currency}" + "}}")
-            formatted_file.write("\n{{Shop/footer}}\n")
-
-@LinkerRegistry.register("Nested Recipe Lists", [FileTags.RecipeList])
-def linkNestedRecipeLists(parser: Parser, srcPaths, dstPath):
-    recipe_lists = jsonParse(parser, srcPaths[FileTags.RecipeList.value], RecipeListParser.getRecipeList)
-    logging.debug("Found " + str(len(recipe_lists)) + " Recipe Lists.")
-    
-    parser.on_progress_update(Progress( f"Found {str(len(recipe_lists))} Recipe Lists."))
-
-    recipe_list_datum = []
-    for o in recipe_lists:
-        recipe_list_datum.extend([x for x in o.items])
-    parser.assets_parser.csvParseAssetFile(recipe_list_datum)
-    
-    recipe_paths = [x['filename'] for x in parser.assets_parser.csvParseMetadataFile(parser.dstPath) if 'recipe' in x['tags'] and '#' not in x['filename']]
-    recipes = jsonParse(parser, recipe_paths, RecipeParser.getRecipe)
-    logging.debug("Found " + str(len(recipes)) + " Recipes.")
-    parser.on_progress_update(Progress( f"Found " + str(len(recipes)) + " Recipes."))
-
-    recipe_datum = []
-    recipe_refs_datum = []
-    recipe_datum.extend([x.output for x in recipes])
-    for rec in recipes:
-        recipe_datum.extend([x for x in rec.inputs])
-        recipe_refs_datum.extend([x for x in rec.required_progress])
-        
-    parser.assets_parser.csvParseAssetFile(recipe_datum)
-    refs = parser.assets_parser.csvParseReferenceFile(recipe_refs_datum)
-
-    parser.on_progress_update(Progress( f"Writing recipes to file..."))
-    os.makedirs(os.path.dirname(dstPath), exist_ok=True)
-    with open(dstPath.replace(".txt", "_formatted.txt"), "w") as formatted_file:
-        for workbench in recipe_lists:
-            matching_recipes = [r for r in recipes if str(r.name) in [str(x.name) for x in workbench.items]]
-            logging.debug(f"Getting recipes for {workbench.filename} (found {len(matching_recipes)}/{len(workbench.items)} recipes)")
-            for recipe in matching_recipes:
-                workbench_name = workbench.filename
-                workbench_name = re.sub(r'.*RecipeList_', '', workbench_name)
-                workbench_name = re.sub(r'(#[0-9]+)*\.json', '', workbench_name)
-                
-                recipe.workbench = workbench_name.replace("RecipeList _", "")
-                
-                recipe_progress = []
-                for progress in recipe.required_progress:
-                    ref = [x for x in refs if progress.pID == x.pID][0]
-                    recipe_progress.append(ref)
-                recipe.required_progress = recipe_progress
-                
-                logging.debug(f"\twriting {recipe.name}")
-                formatted_file.write(recipe.to_wiki_format())
-            
-        logging.debug("Getting Jam Recipes...")
-        # Jam Maker doesn't have a recipe list ?????!!!?
-        # Grabbing all recipes that have the word "Jam", avoiding things like "Jam Shed" and "Jam Maker"
-        for recipe in [r for r in recipes if "Jam" in str(r.name) and not str(r.name).startswith("Jam")]:
-                recipe.workbench = "Jam Maker"
-                
-                recipe_progress = []
-                for progress in recipe.required_progress:
-                    ref = [x for x in refs if progress.pID == x.pID][0]
-                    recipe_progress.append(ref)
-                recipe.required_progress = recipe_progress
-                
-                logging.debug(f"\twriting {recipe.name}")
-                formatted_file.write(recipe.to_wiki_format())
-
-    parser.on_progress_update(Progress( f"Finished recipes to file..."))
-
-@LinkerRegistry.register("Recipe Lists", [FileTags.RecipeList])
-def linkRecipeLists(parser: Parser, srcPaths, dstPath):
-    objList = jsonParse(parser, srcPaths[FileTags.RecipeList.value], RecipeListParser.getRecipeList)
-    logging.debug("Found " + str(len(objList)) + " Recipe Lists.")
-    
-    parser.on_progress_update(Progress( f"Found {str(len(objList))} Recipe Lists."))
-
-    datumList = []
-    for o in objList:
-        datumList.extend([x for x in o.items])
-    parser.assets_parser.csvParseAssetFile(datumList)
-    
-    parser.on_progress_update(Progress( f"Writing recipe lists to file..."))
-
-    os.makedirs(os.path.dirname(dstPath), exist_ok=True)
-    f = open(dstPath, "w")
-    for obj in objList:
-        f.write(obj.filename + '\n')
-        for item in obj.items:
-            f.write("- "+item.name + '\n')
-        f.write('\n')
-    f.close()
-    parser.on_progress_update(Progress( f"Finished writing recipe lists to file..."))
-
-
-@LinkerRegistry.register("Recipes", [FileTags.Recipe])
-def linkRecipes(parser: Parser, srcPaths, dstPath):
-            
-    objList = jsonParse(parser, srcPaths[FileTags.Recipe.value], RecipeParser.getRecipe)
-    logging.debug("Found " + str(len(objList)) + " Recipes.")
-    parser.on_progress_update(Progress( f"Found " + str(len(objList)) + " Recipes."))
-    
-
-    datumList = []
-    datumList.extend([x.output for x in objList])
-    for o in objList:
-        datumList.extend([x for x in o.inputs])
-        datumList.extend([x for x in o.required_progress])
-        
-    datumList.extend([x.workbench for x in objList if x.workbench is not None])
-    parser.assets_parser.csvParseAssetFile(datumList)
-
-    parser.on_progress_update(Progress( f"Writing recipes to file..."))
-    os.makedirs(os.path.dirname(dstPath), exist_ok=True)
-    f = open(dstPath, "w")
-    csv_file = open(dstPath.replace(".txt", ".csv"), "w")
-    for recipe in objList:
-        f.write(recipe.filename+'\n')
-
-        if recipe.output.gID and recipe.output.name:
-            if parser.gameVersion == "230405":
-                jPath = os.path.join(parser.dataPath,'_Monobehaviour/Item', recipe.output.gID +' - '+ recipe.output.name + '.json')
-            else:
-                jPath = os.path.join(parser.dataPath,'Monobehaviour', recipe.output.gID+' - '+recipe.output.name+'.json')
-
-            if os.path.isfile(jPath):
-                j = open(jPath)
-                data = json.load(j)
-                f.write(': ' + data['description'] + '\n: ' + data['helpDescription']+'\n')
-                recipe.output.sell_price = data['sellPrice']
-                recipe.output.sell_type = "Coins"
-                if data['orbsSellPrice'] > 0:
-                    recipe.output.sell_price = data['orbsSellPrice']
-                    recipe.output.sell_type = "Orbs"
-                if data['ticketSellPrice'] > 0:
-                    recipe.output.sell_price = data['ticketSellPrice']
-                    recipe.output.sell_type = "Tickets"
-                j.close()
-        
-        f.write('Crafting Time: '+recipe.craftTime+'\nInputs:\n')
-        for item in recipe.inputs:
-            f.write("- "+item.name + ': ' + item.amount + '\n')
-        f.write('Output:\n- ' +
-                recipe.output.name + ': ' + recipe.output.amount + '\n')
-        f.write('\n')
-        csv_file.write(recipe.to_csv() + "\n")
-        
-    csv_file.close()
-    f.close()
-    
-    with open(dstPath.replace(".txt", "_formatted.txt"), "w") as formatted_file:
-        for recipe in objList:
-            formatted_file.write(recipe.to_wiki_format())
-
-    parser.on_progress_update(Progress( f"Finished recipes to file..."))
-
-@LinkerRegistry.register("Statted Items", [FileTags.Statted])
+@LinkerRegistry.register("Statted Items", [FileTags.STATTED])
 def linkStattedItems(parser, srcPaths, dstPath):
-    objList = jsonParse(parser, srcPaths[FileTags.Statted.value], StattedItemParser.getStattedItem)
+    objList = jsonParse(parser, srcPaths[FileTags.STATTED.value], StattedItemParser.getStattedItem)
     logging.debug(f"Found {str(len(objList))} Statted Items.")
     parser.on_progress_update(Progress( f"Found {str(len(objList))} Statted Items."))
     
@@ -908,10 +477,10 @@ def linkBooks(parser: Parser, srcPaths, dstPath):
     
     parser.on_progress_update(Progress( f"Finished writing books file..."))
     
-@LinkerRegistry.register("Quests", [FileTags.Quest])
+@LinkerRegistry.register("Quests", [FileTags.QUEST])
 def linkQuests(parser: Parser, srcPaths, dstPath):
 
-    objList = jsonParse(parser, srcPaths[FileTags.Quest.value], QuestParser.getQuest)
+    objList = jsonParse(parser, srcPaths[FileTags.QUEST.value], QuestParser.getQuest)
     logging.debug(f"Found {str(len(objList))} Quests.")
     parser.on_progress_update(Progress( f"Found {str(len(objList))} Quests."))
     

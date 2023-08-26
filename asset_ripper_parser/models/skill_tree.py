@@ -1,6 +1,6 @@
 """Contains all classes that store information about in-game skills"""
 
-from DesktopApp.asset_ripper_parser.parse_sprite_sheet import Sprite
+from asset_ripper_parser.parse_sprite_sheet import Sprite
 
 
 class Skill:

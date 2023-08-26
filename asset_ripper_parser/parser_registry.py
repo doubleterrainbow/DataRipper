@@ -3,10 +3,10 @@ class ParserFunction:
     as well as a callable instance of that function.
     """
 
-    def __init__(self, label, tags, callable):
+    def __init__(self, label, tags, func_callable):
         self.label = label
         self.tags = tags
-        self.callable = callable
+        self.func_callable = func_callable
 
 
 class ParserRegistry:
@@ -28,7 +28,7 @@ class ParserRegistry:
 
         def decorator(func):
             cls.registry.append(
-                ParserFunction(label=args[0], tags=args[1], callable=func)
+                ParserFunction(label=args[0], tags=args[1], func_callable=func)
             )
             return func
 

@@ -1,17 +1,16 @@
 """All methods used to convert skill and skill tree assets to Skill and SkillTree objects"""
 import logging
 import pprint
-from DesktopApp.asset_ripper_parser.exported_file_parser import parse_exported_file
-from DesktopApp.asset_ripper_parser.index_files import FileIndexer
-from DesktopApp.asset_ripper_parser.models.skill_tree import Skill, SkillTree
-from DesktopApp.asset_ripper_parser.parse_sprite_sheet import (
+from asset_ripper_parser.exported_file_parser import parse_exported_file
+from asset_ripper_parser.index_files import FileIndexer
+from asset_ripper_parser.models.skill_tree import Skill, SkillTree
+from asset_ripper_parser.parse_sprite_sheet import (
     parse_sprite_asset,
 )
-from DesktopApp.asset_ripper_parser.utils import camel_case_split
+from asset_ripper_parser.utils import camel_case_split
 
-def parse_skills(
-    indexer: FileIndexer, relevant_skill_paths: list[str]
-) -> list[Skill]:
+
+def parse_skills(indexer: FileIndexer, relevant_skill_paths: list[str]) -> list[Skill]:
     """
     Returns a list of skills within a given list of paths
     """

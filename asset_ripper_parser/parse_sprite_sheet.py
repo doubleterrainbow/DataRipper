@@ -1,7 +1,7 @@
 import logging
 import pprint
-from DesktopApp.asset_ripper_parser.exported_file_parser import parse_exported_file
-from DesktopApp.asset_ripper_parser.index_files import FileIndexer
+from asset_ripper_parser.exported_file_parser import parse_exported_file
+from asset_ripper_parser.index_files import FileIndexer
 
 
 class Sprite:

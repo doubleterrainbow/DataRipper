@@ -1,12 +1,12 @@
 """Contains the class for Furniture objects"""
-from DesktopApp.asset_ripper_parser.models.item import Item
+from asset_ripper_parser.models.item import Item
 
 
 class Furniture(Item):
     """Represents an item that can be placed by the player."""
 
     def __init__(self):
-        super().__init__()
+        super().__init__("")
         self.type = "Misc"
         self.placed_on = "floor"
         self.rotatable = False
