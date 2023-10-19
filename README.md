@@ -1,6 +1,4 @@
 
-# Data Ripper
-
 If you are familiar with git, you can clone the repository. Otherwise, you can download the ZIP of the project.
 
 First, check the branch:
