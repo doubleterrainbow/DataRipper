@@ -1,15 +1,27 @@
 """Contains all functions that can intake list of asset file paths and output human-friendly files"""
+import csv
+import itertools
 import logging
 import os
 from asset_ripper_parser.file_tags import FileTagLabel
+from asset_ripper_parser.models.item import Item
+from asset_ripper_parser.models.rnpc import RNPC
 from asset_ripper_parser.parser_registry import ParserRegistry
+from asset_ripper_parser.parsers.barn_animal_parser import parse_barn_animals
+from asset_ripper_parser.parsers.bundle_parser import parse_bundles
+from asset_ripper_parser.parsers.clothing_parser import parse_clothing
 from asset_ripper_parser.parsers.cutscene_parser import parse_cutscenes
+from asset_ripper_parser.parsers.fish_spawn_parser import parse_fish_spawners
 from asset_ripper_parser.parsers.furniture_parser import parse_furniture
 
 from asset_ripper_parser.parsers.gift_table_parser import parse_gift_tables
 from asset_ripper_parser.parsers.item_parser import (
     parse_items,
     produce_description_template,
+    produce_description_module,
+)
+from asset_ripper_parser.parsers.memory_potion_parser import (
+    parse_memory_loss_potion_responses,
 )
 from asset_ripper_parser.parsers.monster_parser import parse_monsters
 from asset_ripper_parser.parsers.monster_spawn_parser import (
@@ -17,11 +29,34 @@ from asset_ripper_parser.parsers.monster_spawn_parser import (
 )
 from asset_ripper_parser.parsers.quest_parser import parse_bulletin_quests, parse_quests
 from asset_ripper_parser.parsers.recipe_parser import parse_recipes, parse_skill_tomes
+from asset_ripper_parser.parsers.rnpc_parser import parse_rnpcs
 from asset_ripper_parser.parsers.shop_parser import (
     parse_merchants,
 )
 from asset_ripper_parser.parsers.skill_tree_parser import parse_skill_trees
 from asset_ripper_parser.parsers.wallpaper_parser import parse_wallpaper
+from asset_ripper_parser.utils import clean_text
+
+
+@ParserRegistry.include("Barn Animals", [FileTagLabel.BARN_ANIMAL])
+def produce_barn_animals(indexer, report_progress, output_dir, files):
+    """TODO
+
+    Args:
+        indexer (FileIndexer): used for file lookups
+        report_progress (function): callback to notify that an item has been processed.
+        output_dir (str): file path for the folder to put the resulting text files.
+        files (dict): file paths organized by FileTags
+    """
+    with open(
+        os.path.join(output_dir, "barn_animals.txt"), "w", encoding="utf-8"
+    ) as output_file:
+        animal_files = [x for x in files[FileTagLabel.BARN_ANIMAL] if ".unity" not in x]
+        logging.debug("Found %d barn animals", len(animal_files))
+        animals = parse_barn_animals(indexer, animal_files, report_progress)
+        for animal in animals:
+            output_file.write(str(animal))
+            output_file.write("\n\n")
 
 
 @ParserRegistry.include("Bulletin Quests", [FileTagLabel.BULLETIN_BOARD])
@@ -46,6 +81,140 @@ def produce_bulletin_quests(indexer, report_progress, output_dir, files):
             output_file.write("\n")
             output_file.write(quest.to_wiki_tags())
             output_file.write("\n\n")
+
+
+@ParserRegistry.include("Bundles", [FileTagLabel.BUNDLE])
+def produce_bundles(file_indexer, report_progress, output_dir, files):
+    """Create a text file containing readable monster data from a
+    list of assets.
+
+    Args:
+        file_indexer (FileIndexer): used for file lookups
+        report_progress (function): callback to notify that an item has been processed.
+        output_dir (str): file path for the folder to put the resulting text files.
+        files (dict): file paths organized by FileTags
+    """
+    with open(
+        os.path.join(output_dir, "bundles.txt"), "w", encoding="utf-8"
+    ) as output_file:
+        bundle_files = [x for x in files[FileTagLabel.BUNDLE] if ".unity" not in x]
+
+        logging.debug("Found %d bundles", len(bundle_files))
+        bundles = parse_bundles(file_indexer, bundle_files, report_progress)
+        for bundle in bundles:
+            output_file.write(str(bundle))
+            output_file.write("\n\n")
+
+
+def write_npc_file(output_dir: str, destination: str, npc: RNPC):
+    with open(
+        os.path.join(output_dir, destination), "w", encoding="utf-8"
+    ) as output_file:
+        try:
+            output_file.write(npc.walk_cycles_to_wiki_tags())
+            output_file.write("\n\n")
+        except:
+            logging.error("Error writing %s walk cycles", npc.name, exc_info=True)
+
+        if npc.gift_table.loved:
+            output_file.write(str(npc.gift_table))
+
+        if npc.married_gifts:
+            output_file.write("\n\n===Gifts For the Player===")
+            output_file.write("\n{{GiftsForPlayer|\n")
+            for gift in npc.married_gifts:
+                output_file.write(
+                    f",{gift.item_name}*{gift.amount}:[[{npc.name}/Dialogue#Morning Gifts|Morning Gift]]"
+                )
+            output_file.write("\n}}")
+            output_file.write("\n\n")
+
+            output_file.write(npc.married_gifts_to_wiki_tags())
+            output_file.write("\n\n")
+
+        try:
+            output_file.write(npc.one_liners_to_wiki_tags())
+            output_file.write("\n\n")
+        except:
+            logging.error("Error writing %s one liners", npc.name, exc_info=True)
+
+        try:
+            output_file.write(npc.dialogue_cycles_to_wiki_tags())
+            output_file.write("\n\n")
+        except:
+            logging.error("Error writing %s dialogue cycles", npc.name, exc_info=True)
+
+        try:
+            output_file.write(
+                "<br>This page details out the mail the player receives from '''[[{{BASEPAGENAME}}]]'''. Once "
+                "specific relationship levels are reached, {{BASEPAGENAME}} will send gifts in the mail which "
+                "can be collected from the farm's mailbox.\n"
+            )
+            for mail in npc.mail:
+                output_file.write(mail.to_wiki_tags())
+                output_file.write("\n\n")
+        except:
+            logging.error("Error writing %s mail", npc.name, exc_info=True)
+
+
+@ParserRegistry.include(
+    "RNPCS", [FileTagLabel.RNPC, FileTagLabel.MAIL, FileTagLabel.QUEST]
+)
+def produce_rnpcs(file_indexer, report_progress, output_dir, files):
+    """Create a text file containing readable monster data from a
+    list of assets.
+
+    Args:
+        file_indexer (FileIndexer): used for file lookups
+        report_progress (function): callback to notify that an item has been processed.
+        output_dir (str): file path for the folder to put the resulting text files.
+        files (dict): file paths organized by FileTags
+    """
+
+    rnpc_files = [x for x in files[FileTagLabel.RNPC] if ".unity" not in x]
+
+    logging.debug("Found %d romanceable npcs", len(rnpc_files))
+    os.makedirs(os.path.join(output_dir, "rnpcs"), exist_ok=True)
+
+    parse_rnpcs(
+        file_indexer,
+        rnpc_files,
+        files[FileTagLabel.MAIL],
+        files[FileTagLabel.QUEST],
+        report_progress,
+        on_npc_completed=(
+            lambda npc: write_npc_file(output_dir, f"rnpcs/{npc.name}.txt", npc)
+        ),
+    )
+
+
+@ParserRegistry.include("NPCS", [FileTagLabel.NPC, FileTagLabel.MAIL])
+def produce_npcs(file_indexer, report_progress, output_dir, files):
+    """Create a text file containing readable monster data from a
+    list of assets.
+
+    Args:
+        file_indexer (FileIndexer): used for file lookups
+        report_progress (function): callback to notify that an item has been processed.
+        output_dir (str): file path for the folder to put the resulting text files.
+        files (dict): file paths organized by FileTags
+    """
+
+    npc_files = [x for x in files[FileTagLabel.NPC] if ".unity" not in x]
+
+    logging.debug("Found %d npcs", len(npc_files))
+    os.makedirs(os.path.join(output_dir, "npcs"), exist_ok=True)
+
+    parse_rnpcs(
+        file_indexer,
+        npc_files,
+        files[FileTagLabel.MAIL],
+        [],
+        report_progress,
+        on_npc_completed=(
+            lambda npc: write_npc_file(output_dir, f"npcs/{npc.name}.txt", npc)
+        ),
+    )
 
 
 @ParserRegistry.include("Quests", [FileTagLabel.QUEST])
@@ -120,6 +289,26 @@ def produce_skill_tome_recipes(file_indexer, report_progress, output_dir, files)
             output_file.write("\n\n")
 
 
+def write_item_file(output_dir, batch_number, items: list[Item]):
+    with open(
+        os.path.join(output_dir, f"items_{batch_number}.csv"), "w", encoding="utf-8"
+    ) as output_file:
+        csv_writer = csv.writer(output_file)
+        for item in items:
+            csv_writer.writerow(
+                [
+                    item.name,
+                    item.sprite.name,
+                    item.sprite.file_id,
+                    item.sprite.x,
+                    item.sprite.y,
+                    item.sprite.height,
+                    item.sprite.width,
+                    item.sprite.image_path,
+                ]
+            )
+
+
 @ParserRegistry.include("Items", [FileTagLabel.ITEM])
 def produce_items(file_indexer, report_progress, output_dir, files):
     """Generates a text file of item info given a list of
@@ -134,26 +323,47 @@ def produce_items(file_indexer, report_progress, output_dir, files):
     item_files = files[FileTagLabel.ITEM]
 
     logging.debug("Found %d items", len(item_files))
-    items = parse_items(file_indexer, item_files, report_progress)
 
-    with open(
-        os.path.join(output_dir, "items.txt"), "w", encoding="utf-8"
-    ) as output_file:
-        for item in items:
-            output_file.write(str(item))
-            output_file.write("\n\n")
+    def write_to_file(batch, _, parsed_items):
+        # write_item_file(output_dir, batch, parsed_items)
+        # with open(
+        #     os.path.join(output_dir, "item_names.txt"), "w", encoding="utf-8"
+        # ) as item_name_file:
+        #     for item in parsed_items:
+        #         item_name_file.write(f"{item.name}\n")
 
-    with open(
-        os.path.join(output_dir, "description_template.txt"), "w", encoding="utf-8"
-    ) as description_file:
-        description_file.write(produce_description_template(items))
+        # with open(
+        #     os.path.join(output_dir, "description_template.txt"), "w", encoding="utf-8"
+        # ) as description_file:
+        #     description_file.write(produce_description_template(parsed_items))
+        with open(
+            os.path.join(output_dir, "description_module.txt"), "w", encoding="utf-8"
+        ) as description_file:
+            description_file.write(produce_description_module(parsed_items))
 
-    with open(
-        os.path.join(output_dir, "missing_descriptions.txt"), "w", encoding="utf-8"
-    ) as description_file:
-        for item in items:
-            if item.description == "":
-                description_file.write(f"{item.name}\n")
+        with open(
+            os.path.join(output_dir, "items_infoboxes.txt"), "w", encoding="utf-8"
+        ) as output_file:
+            for item in parsed_items:
+                output_file.write(item.to_wiki_tags())
+                output_file.write("\n\n")
+
+    parse_items(
+        file_indexer,
+        item_files,
+        batch_size=8000,
+        on_batch_complete=write_to_file,
+        report_progress=report_progress,
+        parse_sprite=True,
+    )
+
+    #
+    # with open(
+    #     os.path.join(output_dir, "missing_descriptions.txt"), "w", encoding="utf-8"
+    # ) as description_file:
+    #     for item in items:
+    #         if item.description == "":
+    #             description_file.write(f"{item.name}\n")
 
 
 @ParserRegistry.include("Clothes", [FileTagLabel.CLOTHING])
@@ -167,17 +377,25 @@ def produce_clothes(file_indexer, report_progress, output_dir, files):
         output_dir (str): path to directory where files will be written
         files (dict): dict with a list of asset paths
     """
-    item_files = files[FileTagLabel.CLOTHING]
+    clothing_files = files[FileTagLabel.CLOTHING]
 
-    logging.debug("Found %d items", len(item_files))
-    items = parse_items(file_indexer, item_files, report_progress, parse_sprite=True)
+    logging.debug("Found %d clothes", len(files[FileTagLabel.CLOTHING]))
 
-    with open(
-        os.path.join(output_dir, "clothes.txt"), "w", encoding="utf-8"
-    ) as output_file:
-        for item in items:
-            output_file.write(str(item))
-            output_file.write("\n\n")
+    def write_to_file(batch, _, parsed_items):
+        with open(
+            os.path.join(output_dir, f"clothes_{batch}.csv"), "w", encoding="utf-8"
+        ) as output_file:
+            csv_writer = csv.writer(output_file)
+            for clothes in parsed_items:
+                csv_writer.writerow(clothes.to_list())
+
+    parse_clothing(
+        file_indexer,
+        clothing_files,
+        batch_size=500,
+        on_batch_complete=write_to_file,
+        report_progress=report_progress,
+    )
 
 
 @ParserRegistry.include("MerchantTables", [FileTagLabel.MERCHANT_TABLE])
@@ -251,6 +469,7 @@ def produce_gift_tables(file_indexer, report_progress, output_dir, files):
         gift_tables = parse_gift_tables(file_indexer, gift_table_files, report_progress)
 
         for table in gift_tables:
+            output_file.write(table.npc_name + "\n")
             output_file.write(str(table))
             output_file.write("\n\n")
 
@@ -362,6 +581,56 @@ def produce_wallpaper(file_indexer, report_progress, output_dir, files):
             output_file.write("\n\n")
 
 
+@ParserRegistry.include("Fish Spawners", [FileTagLabel.FISH_SPAWNER])
+def produce_fish_spawners(file_indexer, report_progress, output_dir, files):
+    """Given a list of asset files, creates a text file containing details about wallpapers.
+
+    Args:
+        file_indexer (FileIndexer): used for file lookups
+        report_progress (function): callback to notify that an item has been processed.
+        output_dir (str): file path for the folder to put the resulting text files.
+        files (dict): file paths organized by FileTags
+    """
+    with open(
+        os.path.join(output_dir, "fish_spawners.txt"), "w", encoding="utf-8"
+    ) as output_file:
+        spawner_files = files[FileTagLabel.FISH_SPAWNER]
+        logging.debug("Found %s fish spawn locations", len(spawner_files))
+        fish_spawns = parse_fish_spawners(file_indexer, spawner_files, report_progress)
+
+        fish_spawns_grouped = {}
+        for spawner in fish_spawns:
+            for drop in spawner.drops:
+                if drop.item.name not in fish_spawns_grouped:
+                    fish_spawns_grouped[drop.item.name] = []
+                fish_spawns_grouped[drop.item.name].append(drop)
+
+            for drop in spawner.spring_drops:
+                if drop.item.name not in fish_spawns_grouped:
+                    fish_spawns_grouped[drop.item.name] = []
+                fish_spawns_grouped[drop.item.name].append(drop)
+
+            for drop in spawner.summer_drops:
+                if drop.item.name not in fish_spawns_grouped:
+                    fish_spawns_grouped[drop.item.name] = []
+                fish_spawns_grouped[drop.item.name].append(drop)
+
+            for drop in spawner.fall_drops:
+                if drop.item.name not in fish_spawns_grouped:
+                    fish_spawns_grouped[drop.item.name] = []
+                fish_spawns_grouped[drop.item.name].append(drop)
+
+            for drop in spawner.winter_drops:
+                if drop.item.name not in fish_spawns_grouped:
+                    fish_spawns_grouped[drop.item.name] = []
+                fish_spawns_grouped[drop.item.name].append(drop)
+
+        for key, value in fish_spawns_grouped.items():
+            output_file.write(str(key) + "\n")
+            output_file.write("\n".join([str(x) for x in set(value)]))
+            output_file.write("\n\n")
+
+
 def produce_cutscenes(cutscene_files: list[str], report_progress, output_dir):
     logging.debug("Found %s cutscenes", len(cutscene_files))
     cutscenes = parse_cutscenes(cutscene_files, report_progress=report_progress)
@@ -373,17 +642,40 @@ def produce_cutscenes(cutscene_files: list[str], report_progress, output_dir):
             output_file.write("\n\n")
 
     with open(
-        os.path.join(output_dir, "cutscenes.txt"), "w", encoding="utf-8"
-    ) as output_file:
+        os.path.join(output_dir, "cutscene_names.txt"), "w", encoding="utf-8"
+    ) as cutscene_name_file:
         for scene in cutscenes:
-            output_file.write(str(scene))
-            output_file.write("\n\n")
+            cutscene_name_file.write(f"{scene.name}\n")
 
+    # with open(
+    #     os.path.join(output_dir, "cutscenes.txt"), "w", encoding="utf-8"
+    # ) as output_file:
+    #     for scene in cutscenes:
+    #         output_file.write(str(scene))
+    #         output_file.write("\n\n")
+    #
+    # with open(
+    #     os.path.join(output_dir, "cutscene_tables.txt"), "w", encoding="utf-8"
+    # ) as output_file:
+    #     for scene in cutscenes:
+    #         output_file.write(scene.to_wiki_tags(template="Table"))
+    #         output_file.write("\n\n")
+
+
+def produce_memory_loss_potion_lines(
+    npc_ai_file: list[str], report_progress, output_dir
+):
+    logging.debug("Parsing memory loss potion dialogues")
+    responses = parse_memory_loss_potion_responses(
+        npc_ai_file, report_progress=report_progress
+    )
     with open(
-        os.path.join(output_dir, "cutscene_tables.txt"), "w", encoding="utf-8"
+        os.path.join(output_dir, "memory_loss_potion_responses.txt"),
+        "w",
+        encoding="utf-8",
     ) as output_file:
-        for scene in cutscenes:
-            output_file.write(scene.to_wiki_tags(template="Table"))
+        for response in responses:
+            output_file.write(str(response))
             output_file.write("\n\n")
 
 

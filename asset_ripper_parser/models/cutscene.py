@@ -98,7 +98,7 @@ class Cutscene:
     def to_wiki_tags(self, template="Event Scene"):
         result = []
         if template == "Event Scene":
-            result = ["{{Event Scene/header|" + self.name + "|collapse=Blank}}"]
+            result = ["{{Event Scene/header|" + self.name + "|Collapse=True}}"]
 
             indent = " "
             index = 0

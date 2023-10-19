@@ -10,9 +10,12 @@ class FileTagLabel(Enum):
     ANGEL = "angel"
     ANIMAL = "animal"
     ARMOR = "armor"
+    BARN_ANIMAL = "barn animal"
     BOOK = "book"
+    BUNDLE = "bundle"
     BULLETIN_BOARD = "bulletin board"
     CHARACTER_CUSTOMIZATION = "character customization"
+    CHEST = "sellingInventory"
     CLOTHING = "clothing"
     DECORATION = "decoration"
     DEMON = "demon"
@@ -24,17 +27,19 @@ class FileTagLabel(Enum):
     FISH_SPAWNER = "fish spawner"
     FISH_NET = "fish net"
     GIFT_TABLE = "gift table"
+    INTERACTABLE = "interactable"
     ITEM = "item"
     NAGA = "naga"
     NPC = "npc"
+    MAIL = "mail"
     MINE = "mine"
     MERCHANT_TABLE = "merchant table"
-    MUSEUM = "museum"
     PLACEABLE = "placeable"
     PROGRESS = "progress"
     QUEST = "quest"
     RECIPE = "recipe"
     RECIPE_LIST = "recipe list"
+    RNPC = "rnpc"
     SCENE = "scene"
     SEED = "seed"
     SKILL = "skill"
@@ -50,15 +55,19 @@ class FileTag:
     """
 
     def __init__(
-        self, label: FileTagLabel, filename_matcher=None, text_matcher=None
+        self,
+        label: FileTagLabel,
+        filename_matcher=None,
+        text_matcher=None,
+        ignore_scenes=False,
     ) -> None:
         self.label = label
         self.filename_matcher = filename_matcher
         self.text_matcher = text_matcher
+        self.ignore_scenes = ignore_scenes
 
     def check_filename(self, filename: str) -> bool:
         """Checks text against file matcher
-
 
         Args:
             filename (str): name of file to check
@@ -89,6 +98,11 @@ file_tags = [
     FileTag(FileTagLabel.ANIMAL, text_matcher=lambda x: "animalName" in x),
     FileTag(FileTagLabel.AMARI),
     FileTag(FileTagLabel.ARMOR, text_matcher=lambda x: "armorMaterial: 1" in x),
+    FileTag(
+        FileTagLabel.BARN_ANIMAL,
+        text_matcher=lambda x: "animalCapacity:" in x,
+        ignore_scenes=True,
+    ),
     FileTag(FileTagLabel.BOOK, text_matcher=lambda x: "bookName" in x),
     FileTag(
         FileTagLabel.BULLETIN_BOARD,
@@ -98,10 +112,10 @@ file_tags = [
         FileTagLabel.CHARACTER_CUSTOMIZATION,
         text_matcher=lambda x: "availableAtCharacterSelect" in x,
     ),
+    FileTag(FileTagLabel.CHEST, text_matcher=lambda x: "sellingInventory" in x),
     FileTag(
         FileTagLabel.CLOTHING,
-        filename_matcher=lambda x: re.match(r"[0-9]{3,5} - .+\.asset", x) is not None,
-        text_matcher=lambda x: "clothingLayerData" in x,
+        text_matcher=lambda x: "clothingLayerData: {fileID: 11400000, guid:" in x,
     ),
     FileTag(FileTagLabel.DECORATION, text_matcher=lambda x: "placeableOnTables:" in x),
     FileTag(FileTagLabel.DEMON),
@@ -118,13 +132,18 @@ file_tags = [
         text_matcher=lambda x: "fish:" in x and "large" not in x,
     ),
     FileTag(FileTagLabel.GIFT_TABLE, filename_matcher=lambda x: "GiftTable.asset" in x),
+    FileTag(FileTagLabel.INTERACTABLE, text_matcher=lambda x: "interactionText" in x),
     FileTag(
         FileTagLabel.ITEM,
         filename_matcher=lambda x: re.match(r"[0-9]{3,5} - .+\.asset", x) is not None,
     ),
     FileTag(FileTagLabel.NAGA),
+    FileTag(
+        FileTagLabel.MAIL,
+        filename_matcher=lambda x: re.match(r".+Mail[0-9A-L]*.asset", x) is not None,
+    ),
     FileTag(FileTagLabel.MINE, text_matcher=lambda x: "canDropRustyKey" in x),
-    FileTag(FileTagLabel.MUSEUM, text_matcher=lambda x: "bundle" in x),
+    FileTag(FileTagLabel.BUNDLE, text_matcher=lambda x: "bundleType" in x),
     FileTag(FileTagLabel.NPC, text_matcher=lambda x: "_oneLiners" in x),
     FileTag(
         FileTagLabel.MERCHANT_TABLE, filename_matcher=lambda x: "MerchantTable" in x
@@ -142,11 +161,17 @@ file_tags = [
         filename_matcher=lambda x: re.match(r"Recipe [0-9]+", x) is not None,
     ),
     FileTag(FileTagLabel.RECIPE_LIST, filename_matcher=lambda x: "RecipeList" in x),
+    FileTag(
+        FileTagLabel.RNPC,
+        text_matcher=lambda x: "_romanceable: 1" in x,
+        ignore_scenes=True,
+    ),
     FileTag(FileTagLabel.SEED, filename_matcher=lambda x: " Seed" in x),
     FileTag(FileTagLabel.SKILL, text_matcher=lambda x: "nodePoints:" in x),
     FileTag(FileTagLabel.SKILL_TREE, filename_matcher=lambda x: "SkillTree.asset" in x),
-    FileTag(FileTagLabel.SKILL_TOME, filename_matcher=lambda x:
-        "Recipe " in x and "Skill Tome.asset" in x
+    FileTag(
+        FileTagLabel.SKILL_TOME,
+        filename_matcher=lambda x: "Recipe " in x and "Skill Tome.asset" in x,
     ),
     FileTag(FileTagLabel.STATTED, text_matcher=lambda x: "stats" in x),
     FileTag(FileTagLabel.SCENE, filename_matcher=lambda x: x.endswith(".unity")),

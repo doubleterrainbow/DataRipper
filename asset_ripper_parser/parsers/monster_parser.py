@@ -1,6 +1,8 @@
 """Contains functionality to convert assets to Monsters"""
 import logging
 import pprint
+
+from asset_ripper_parser.models.random_drop import RandomDrop
 from asset_ripper_parser.parse_exported_file import parse_exported_file
 from asset_ripper_parser.index_files import FileIndexer
 from asset_ripper_parser.models.monster import Monster
@@ -27,7 +29,7 @@ def parse_drops(indexer: FileIndexer, drops: list) -> list[dict]:
         drops (list[dict]): given a relevant asset, reads the '_drops' property
 
     Returns:
-        list[dict]: a minimal and readable list of drops.
+        list[RandomDrop]: a minimal and readable list of drops.
     """
     result = []
     for drop_group in drops:
@@ -39,13 +41,13 @@ def parse_drops(indexer: FileIndexer, drops: list) -> list[dict]:
                 name = indexer.find_name_from_guid(drop["drop"]["guid"])
 
             individual_drops.append(
-                {
-                    "item": name,
-                    "chance": drop["dropChance"],
-                    "amount_x": drop["dropAmount"]["x"],
-                    "amount_y": drop["dropAmount"]["y"],
-                    "percent_chance": 0,
-                }
+                RandomDrop(
+                    item_name=name,
+                    drop_weight=drop["dropChance"],
+                    min_amount=drop["dropAmount"]["x"],
+                    max_amount=drop["dropAmount"]["y"],
+                    percent_chance=0,
+                )
             )
 
         result.append(individual_drops)

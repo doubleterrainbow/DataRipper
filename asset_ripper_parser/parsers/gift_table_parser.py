@@ -1,5 +1,6 @@
 """All methods used to parse GiftTables."""
 import logging
+import os.path
 import pprint
 import re
 from asset_ripper_parser.parse_exported_file import parse_exported_file
@@ -107,9 +108,8 @@ def parse_gift_tables(indexer: FileIndexer, filepaths: list[str], report_progres
     tables = []
     for path in filepaths:
         gift_table = GiftTable()
-        gift_table.npc_name = path.split("gift tables\\")[1].replace(
-            "GiftTable.asset", ""
-        )
+        filename = os.path.basename(path)
+        gift_table.npc_name = filename.replace("GiftTable.asset", "")
         try:
             components = parse_exported_file(path)
             main_component = components[0]["MonoBehaviour"]
@@ -130,7 +130,7 @@ def parse_gift_tables(indexer: FileIndexer, filepaths: list[str], report_progres
 
             for i in range(0, len(main_component["birthdayResponses"])):
                 if i == 0:
-                    gift_table.disliked.birthday_reponse = main_component[
+                    gift_table.disliked.birthday_response = main_component[
                         "birthdayResponses"
                     ][i]
                 elif i == 1:

@@ -6,14 +6,19 @@ import logging
 import os
 import pprint
 from alive_progress import alive_bar
-from asset_ripper_parser.outputs import included_parsers, produce_cutscenes
+from asset_ripper_parser.outputs import (
+    included_parsers,
+    produce_cutscenes,
+    produce_memory_loss_potion_lines,
+)
 from asset_ripper_parser.index_files import FileIndexer
+from progress_bar_styles.rnpc_progress_bar import rnpc_progress_spinner
 
 
 def setup(
     asset_dir: str,
     output_dir: str,
-    tagged_files: list,
+    tagged_files: str,
     create_ids: bool,
     categorize_files: bool,
 ) -> FileIndexer:
@@ -55,18 +60,24 @@ def setup(
 
 def parse_data():
     """Parses assets and sorting data into more readable outputs."""
-    # Asset ripper folder
-    asset_dir = "D:\\Documents\\Sun Haven Assets\\AssetRipperExport_1.2.2"
+    # asset_dir = "D:\\Documents\\Sun Haven Assets\\AssetRipperExport_1.2.2"
+    # code_dir = "D:\\Documents\\Sun Haven Assets\\Code_1.2.2\\SunHaven.Core"
+    # output_dir = "D:\\Documents\\Sun Haven Assets\\test_output_1.2.2"
 
-    code_dir = "D:\\Documents\\Sun Haven Assets\\Code_1.2.2\\SunHaven.Core"
+    # Asset ripper export folder
+    asset_dir = "D:\\Documents\\Sun Haven Assets\\PBE_1.3"
 
-    # Output folder
-    output_dir = "D:\\Documents\\Sun Haven Assets\\test_output_1.2.2"
+    # DNSpy output folder
+    code_dir = "D:\\Documents\\Sun Haven Assets\\PBE_1.3_Code\\SunHaven.Core"
+
+    # Resulting Files will be here
+    output_dir = "D:\\Documents\\Sun Haven Assets\\pbe_output_1.3"
 
     # Skips indexing and tagging files
     categorize_files = False
     create_ids = False
     parse_cutscenes = False
+    parse_memory_loss_potion_lines = False
 
     tagged_files = os.path.join(output_dir, "file_mappings", "tagged_files.csv")
 
@@ -88,20 +99,25 @@ def parse_data():
 
     enabled_parsers = [
         # Parser Name, bar style (arbitrary), spinner style (arbitrary)
-        # ('Recipes', 'circles', 'dots'),
-        ("Skill Tome Recipes", "circles", "dots"),
+        # ("Barn Animals", "checks", "fishes"),
+        # ("Bundles", "filling", "ball_belt"),
+        # ("Bulletin Quests", "bubbles", "loving"),
+        # ("Clothes", "brackets", "notes"),
+        # ("Fish Spawners", "fish", "fish2"),
+        # ("Furniture", "blocks", "dots"),
+        # ("Gift Tables", "checks", "loving"),
+        ("Items", "bubbles", "fish2"),
+        # ("MerchantTables", "squares", "pulse"),
+        # ("Monsters", "halloween", "elements"),
+        # ("MonsterSpawns", "halloween", "twirl"), # This is a very slow step. Should be run on its own
+        # ("Shops", "squares", "flowers"),
+        # ("Quests", "bubbles", "loving"),
+        # ("Recipes", "circles", "dots"),
+        # ("RNPCS", "bubbles", rnpc_progress_spinner),
+        # ("NPCS", "bubbles", rnpc_progress_spinner),
+        # ("Skill Tome Recipes", "circles", "dots"),
         # ('Skills', 'blocks', 'elements'),
-        # ('Furniture', 'blocks', 'dots'),
-        # ('Items', 'bubbles', 'fish2'),
-        # ('Clothes', 'brackets', 'notes'),
         # ('Wallpaper', 'blocks', 'elements'),
-        # ('MerchantTables', 'squares', 'pulse'),
-        # ('Monsters', 'halloween', 'elements'),
-        # ('MonsterSpawns', 'halloween', 'twirl'),
-        # ('Shops', 'squares', 'flowers'),
-        # ('Gift Tables', 'checks', 'loving'),
-        # ('Quests', 'bubbles', 'loving'),
-        # ('Bulletin Quests', 'bubbles', 'loving'),
     ]
 
     file_indexer = setup(
@@ -113,7 +129,8 @@ def parse_data():
     )
 
     with open(tagged_files, "r", encoding="utf-8") as tagged_files:
-        file_tags = csv.reader(tagged_files)
+        file_tag_reader = csv.reader(tagged_files)
+        file_tags = list(file_tag_reader)
 
         parsers = included_parsers
         for parser in parsers:
@@ -131,10 +148,13 @@ def parse_data():
                         spinner=matching_parser[0][2],
                     ) as parser_bar:
 
-                        def report_progress():
+                        def report_progress(text=None):
                             # pylint: disable=not-callable,cell-var-from-loop
                             parser_bar()
-                            parser_bar.text(parser.label)
+                            if text is not None:
+                                parser_bar.text(text)
+                            else:
+                                parser_bar.text(parser.label)
 
                         parser.func_callable(
                             file_indexer, report_progress, output_dir, files
@@ -156,9 +176,25 @@ def parse_data():
                     cutscene_bar()
                     cutscene_bar.text("Cutscenes")
 
-                filtered_cutscenes = [x for x in cutscene_files if "Vivi" in x]
-                produce_cutscenes(
-                    filtered_cutscenes, report_cutscene_progress, output_dir
+                # filtered_cutscenes = [x for x in cutscene_files if "hello" in x]
+                produce_cutscenes(cutscene_files, report_cutscene_progress, output_dir)
+
+        if parse_memory_loss_potion_lines:
+            npc_ai_file = [
+                os.path.join(dir_path, file)
+                for dir_path, _, file_names in os.walk(code_dir)
+                for file in file_names
+                if file.endswith("NPCAI.cs")
+            ]
+            with alive_bar(len(npc_ai_file)) as potion_bar:
+
+                def report_potion_progress():
+                    # pylint: disable=not-callable,cell-var-from-loop
+                    potion_bar()
+                    potion_bar.text("Memory Loss Potion Texts")
+
+                produce_memory_loss_potion_lines(
+                    npc_ai_file, report_potion_progress, output_dir
                 )
     print("Done!")
 

@@ -3,6 +3,8 @@ from difflib import SequenceMatcher
 from enum import Enum
 import itertools
 
+from asset_ripper_parser.utils import clean_text
+
 
 class GiftLevel(Enum):
     """Represents how good a gift is."""
@@ -35,12 +37,13 @@ class GiftsAndResponse:
         self.gift_level = level
         self.responses = []
         self.items = []
-        self.birthday_reponse = ""
+        self.birthday_response = ""
 
     def __str__(self) -> str:
-        result = []
-        result.append(f"|{self.gift_level.value}Response = {', '.join(self.responses)}")
-        result.append(f"|{self.gift_level.value} = {', '.join(self.items)}")
+        result = [
+            f"|{self.gift_level.value}Response = {', '.join([clean_text(x) for x in self.responses])}",
+            f"|{self.gift_level.value} = {', '.join(self.items)}",
+        ]
 
         if self.gift_level != GiftLevel.NEUTRAL:
             category_label = (
@@ -67,35 +70,52 @@ class GiftTable:
         self.loved = GiftsAndResponse(GiftLevel.LOVE)
         self.liked = GiftsAndResponse(GiftLevel.LIKE)
         self.neutral = GiftsAndResponse(GiftLevel.NEUTRAL)
-        self.disliked = GiftsAndResponse(GiftLevel.UNIQUE)
+        self.disliked = GiftsAndResponse(GiftLevel.DISLIKE)
 
         self.unique_items = []
 
     def __str__(self):
-        result = [self.npc_name]
-        result.append("{{NPC Gift Preferences")
+        result = [
+            "{{NPC Gift Preferences",
+            str(self.loved),
+            str(self.liked),
+            str(self.neutral),
+            str(self.disliked),
+            "}}",
+            "===Birthday Responses===",
+            "If the player gives {{BASEPAGENAME}} a gift on their [[Calendar|birthday]], they will get one of these "
+            "generic responses based on the level of the gift. {{BASEPAGENAME}}'s birthday is the "
+            "REPLACE_WITH_BIRTHDAY",
+        ]
 
-        result.append(str(self.loved))
-        result.append(str(self.liked))
-        result.append(str(self.neutral))
-        result.append(str(self.disliked))
+        for b_day_response in [
+            x.birthday_response
+            for x in [self.loved, self.liked, self.disliked, self.neutral]
+        ]:
+            result.append("{{chat||" + clean_text(b_day_response) + "}}")
 
-        result.append("}}")
+        result.append("\n===Unique===")
+        result.append("{{BASEPAGENAME}} has several unique lines for gifts.<br><br>")
 
         grouped_unique_gifts = itertools.groupby(
             self.unique_items, lambda x: x.response
         )
         for key, group in grouped_unique_gifts:
             names = [x.item_name for x in group]
-            if len(names) > 3:
-                match = SequenceMatcher(None, names[0], names[1]).find_longest_match()
-                common_words = names[0][match.a : match.a + match.size]
-                if len(common_words.strip()) > 1 and common_words.strip()[0].isupper():
-                    name = "Any " + names[0][match.a : match.a + match.size].strip()
-                else:
-                    name = ", ".join(names)
-            else:
-                name = ", ".join(names)
-            result.append(f"{name}: {key}")
+            # if len(names) > 3:
+            #     match = SequenceMatcher(None, names[0], names[1]).find_longest_match()
+            #     common_words = names[0][match.a : match.a + match.size]
+            #     if len(common_words.strip()) > 1 and common_words.strip()[0].isupper():
+            #         name = "any " + names[0][match.a : match.a + match.size].strip()
+            #     else:
+            #         name = ", ".join(names)
+            # else:
+            #     name = ", ".join(names)
+
+            name_links = " or ".join(
+                ", ".join([f"[[{x}]]" for x in names]).rsplit(", ", maxsplit=1)
+            )
+            result.append(f"When gifted {name_links}:")
+            result.append("{{chat||" + clean_text(key) + "}}")
 
         return "\n".join(result)

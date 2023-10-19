@@ -28,8 +28,7 @@ class Quest:
         return "\n".join(result)
 
     def to_wiki_tags(self) -> str:
-        result = ["{{QUEST"]
-        result.append(f"|name      = {self.name}")
+        result = ["{{QUEST", f"|name      = {self.name}"]
 
         objective_items = []
         for item in self.requires:
@@ -70,12 +69,12 @@ class Quest:
         result.append("{{Quest overview")
 
         result.append("|requires = " + ";".join(requires))
-        result.append("|rewards = " + ";".join(rewards))
-        result.append("|bonus = " + ";".join(bonus_rewards))
+        result.append("|rewards  = " + ";".join(rewards))
+        result.append("|bonus    = " + ";".join(bonus_rewards))
 
         result.append("}}")
 
-        result.append("==Quest Complete Text==")
+        result.append("==Post-Quest Dialogue==")
         result.append("Upon turning in this quest, the NPC will say:")
         result.append("{{" + f"Chat|{self.turn_in_to_npc}|{self.turn_in_text}" + "}}")
 

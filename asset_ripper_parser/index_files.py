@@ -26,9 +26,11 @@ class FileIndexer:
             "Resources",
             "PrefabInstance",
             "Scenes",
+            "TextAsset",
         ]  # maybe add 'Sprite'?
 
-    def _get_path_from_guid(self, file, guid):
+    @staticmethod
+    def _get_path_from_guid(file, guid):
         """Searches file for text
 
         Args:
@@ -59,6 +61,22 @@ class FileIndexer:
             None: GUID has not been mapped to a file path
         """
         return self._get_path_from_guid(self.texture_ids_file, guid)
+
+    def find_texture_path_from_matcher(self, matcher):
+        with open(self.texture_ids_file, "r", encoding="utf-8") as ids_file:
+            ids_reader = csv.reader(ids_file)
+            for line in ids_reader:
+                if len(line) > 1 and matcher(line[0]):
+                    return line[0]
+        return None
+
+    def find_sprite_path_from_matcher(self, matcher):
+        with open(self.sprite_ids_file, "r", encoding="utf-8") as ids_file:
+            ids_reader = csv.reader(ids_file)
+            for line in ids_reader:
+                if len(line) > 1 and matcher(line[0]):
+                    return line[0]
+        return None
 
     def find_sprite_path_from_guid(self, guid):
         """
@@ -228,22 +246,22 @@ class FileIndexer:
                                     "environment",
                                     "eyes",
                                     "floor_",
-                                    "hat_",
                                     "tile",
                                     "Kpops",
                                     "legs_",
                                     "face",
-                                    "shirt_",
-                                    "sleeves_",
-                                    "sleves_",
+                                    # "hat_",
+                                    # "shirt_",
+                                    # "sleeves_",
+                                    # "sleves_",
+                                    # "pants_",
+                                    # "chest_",
+                                    # "toparm",
                                     "tail_",
                                     "grass",
                                     "Legs",
-                                    "pants_",
                                     "Facial",
                                     "rock",
-                                    "toparm",
-                                    "chest_",
                                     "Amari",
                                 ]
                                 if x in name
@@ -301,7 +319,14 @@ class FileIndexer:
         # logging.debug(f"Tagging {filename}...")
 
         for tag in file_tags.file_tags:
-            if tag.filename_matcher is not None and tag.filename_matcher(filename):
+            scene_filter = not tag.ignore_scenes or (
+                tag.ignore_scenes and ".unity" not in filename
+            )
+            if (
+                scene_filter
+                and tag.filename_matcher is not None
+                and tag.filename_matcher(filename)
+            ):
                 tags.append(tag.label.value)
 
         for tag in file_tags.file_tags:

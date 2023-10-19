@@ -21,7 +21,22 @@ def clean_text(text):
     Returns:
         str: dialogue more usable on the wiki.
     """
-    return text.replace("XX", "{{PLAYER}}").replace("[]", "<br>")
+    result = (
+        text.replace("XX", "{{PLAYER}}")
+        .replace("[]", "<br>")
+        .replace("<i>", "''")
+        .replace("</i>", "''")
+        .replace('\\"', '"')
+    )
+
+    if "<color" in result:
+        result = re.sub(
+            r"</?color(=#(\d|\w)+)?>",
+            "",
+            result,
+        )
+
+    return result
 
 
 def parse_cutscene(path: str):
@@ -42,7 +57,11 @@ def parse_cutscene(path: str):
             r"string\)TranslationLayer\.TranslateObject\(\")"
         )
         for talking_npc in re.split(npc_marker, dialogue_code):
-            npc = re.split(r"[\".]", talking_npc, maxsplit=1)[0].capitalize()
+            npc = re.sub(
+                r"\);\s*yield return base",
+                "",
+                re.split(r"[\".]", talking_npc, maxsplit=1)[0].capitalize(),
+            )
 
             # Extract dialogue parts using regular expressions
             dialogue_pattern = (
@@ -64,25 +83,24 @@ def parse_cutscene(path: str):
 
                 options_data = []
                 for option_match in single_options_matches:
-                    option_text = option_match[0]
+                    option_text = clean_text(option_match[0])
 
                     options_data.append({"text": option_text, "hearts": 0})
 
                 # Extract options using regular expression
                 options_pattern = (
-                    r'new ValueTuple<string, UnityAction>\(.*?"(.*?)", ".*?"\), delegate\(\)[\s\{\}]*('
-                    r"?:response = \d;)?(?:this\.\w+\.AddRelationship\((-?\d)f, 0f\))?"
+                    r'new ValueTuple<string, UnityAction>\(.*?"(.*?)", (?:".*?"|null)\)'
                 )
                 options_matches = re.findall(options_pattern, options_args)
 
                 for option_match in options_matches:
-                    option_text = option_match[0]
+                    option_text = clean_text(option_match)
                     pprint.pprint(option_match)
-                    hearts = 0
-                    if option_match[1] != "":
-                        hearts = int(option_match[1])
+                    # hearts = 0
+                    # if len(option_match) > 1 and option_match[1] != "":
+                    #     hearts = int(option_match[1])
 
-                    options_data.append({"text": option_text, "hearts": hearts})
+                    options_data.append({"text": option_text, "hearts": 0})
 
                 dialogue_data.append(
                     {"npc": npc, "text": dialogue_text, "options": options_data}

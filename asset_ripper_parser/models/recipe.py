@@ -7,9 +7,9 @@ from asset_ripper_parser.parsers.skill_progress import skill_progress_markers
 class Ingredient:
     """Defines an item name and the amount needed to craft."""
 
-    def __init__(self):
-        self.name = ""
-        self.amount = 1
+    def __init__(self, name="", amount=1):
+        self.name = name
+        self.amount = amount
 
 
 class Recipe:

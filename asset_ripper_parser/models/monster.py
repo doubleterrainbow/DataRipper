@@ -1,4 +1,5 @@
 """All classes related to enemies in the game."""
+from asset_ripper_parser.models.random_drop import RandomDrop
 
 
 class Monster:
@@ -15,27 +16,28 @@ class Monster:
         self.max_damage = 0
         self.ranged = False
 
-        self.drops = []
+        self.drops: list[list[RandomDrop]] = []
 
     def __str__(self):
-        result = [self.name + f" (level {self.level})"]
-
-        result.append(f"Spawner: {self.spawner_id}")
-        result.append(f"Health: {self.health}")
-        result.append(f"Experience: {self.experience}")
-        result.append(f"Defense: {self.defense}")
-        result.append(f"Damage: {self.min_damage}-{self.max_damage}")
+        result = [
+            self.name + f" (level {self.level})",
+            f"Spawner: {self.spawner_id}",
+            f"Health: {self.health}",
+            f"Experience: {self.experience}",
+            f"Defense: {self.defense}",
+            f"Damage: {self.min_damage}-{self.max_damage}",
+        ]
 
         for drop in self.drops:
             for dropped_item in drop:
-                if dropped_item["item"] is not None:
-                    amount = str(dropped_item["amount_x"])
-                    if dropped_item["amount_x"] != dropped_item["amount_y"]:
-                        amount += f"-{dropped_item['amount_y']}"
+                if dropped_item.item_name is not None:
+                    amount = str(dropped_item.min_amount)
+                    if dropped_item.min_amount != dropped_item.max_amount:
+                        amount += f"-{dropped_item.max_amount}"
 
                     result.append(
-                        f"\t{amount} {dropped_item['item']} "
-                        + f"({round(dropped_item['percent_chance'], 2)}%)"
+                        f"\t{amount} {dropped_item.item_name} "
+                        + f"({round(dropped_item.percent_chance, 2)}%)"
                     )
 
         return "\n".join(result)
@@ -46,7 +48,7 @@ class Monster:
             return
 
         for group in self.drops:
-            total_weight = sum(drop["chance"] for drop in group)
+            total_weight = sum(drop.drop_weight for drop in group)
 
             for drop in group:
-                drop["percent_chance"] = (drop["chance"] / total_weight) * 100
+                drop.percent_chance = (drop.drop_weight / total_weight) * 100
