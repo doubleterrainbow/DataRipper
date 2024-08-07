@@ -66,10 +66,6 @@ def interactive_setup():
             message="What folder are the assets in?",
         ),
         Text(
-            "Code Directory",
-            message="What folder is the code in?",
-        ),
-        Text(
             "Output Directory",
             message="What folder should the resulting files be placed in? (does not need to exist)",
         ),
@@ -110,14 +106,10 @@ def interactive_setup():
 def parse_data(settings):
     """Parses assets and sorting data into more readable outputs."""
     # asset_dir = "D:\\Documents\\Sun Haven Assets\\AssetRipperExport_1.2.2"
-    # code_dir = "D:\\Documents\\Sun Haven Assets\\Code_1.2.2\\SunHaven.Core"
     # output_dir = "D:\\Documents\\Sun Haven Assets\\test_output_1.2.2"
 
     # Asset ripper export folder
     asset_dir = settings["Asset Directory"].replace('"', "")
-
-    # DNSpy output folder
-    code_dir = settings["Code Directory"].replace('"', "") + "\\SunHaven.Core"
 
     # Resulting Files will be here
     output_dir = settings["Output Directory"].replace('"', "")
@@ -218,21 +210,26 @@ def parse_data(settings):
                     logging.error("Error when linking %s", parser.label, exc_info=True)
 
         if parse_cutscenes:
-            cutscene_files = [
-                os.path.join(dir_path, file)
-                for dir_path, _, file_names in os.walk(code_dir)
-                for file in file_names
-                if "Cutscene" in file
-            ]
-            with alive_bar(len(cutscene_files)) as cutscene_bar:
+            code_dir = os.path.join(asset_dir, "ExportedProject", "Assets", "Scripts")
 
-                def report_cutscene_progress():
-                    # pylint: disable=not-callable,cell-var-from-loop
-                    cutscene_bar()
-                    cutscene_bar.text("Cutscenes")
+            if not os.path.exists(code_dir):
+                logging.error("Could not find directory %s. Skipping.", str(code_dir))
+            else:
+                cutscene_files = [
+                    os.path.join(dir_path, file)
+                    for dir_path, _, file_names in os.walk(code_dir)
+                    for file in file_names
+                    if "Cutscene" in file
+                ]
+                with alive_bar(len(cutscene_files)) as cutscene_bar:
 
-                # filtered_cutscenes = [x for x in cutscene_files if "hello" in x]
-                produce_cutscenes(cutscene_files, report_cutscene_progress, output_dir)
+                    def report_cutscene_progress():
+                        # pylint: disable=not-callable,cell-var-from-loop
+                        cutscene_bar()
+                        cutscene_bar.text("Cutscenes")
+
+                    # filtered_cutscenes = [x for x in cutscene_files if "hello" in x]
+                    produce_cutscenes(cutscene_files, report_cutscene_progress, output_dir)
 
         if parse_memory_loss_potion_lines:
             npc_ai_file = [

@@ -46,28 +46,15 @@ Asset Ripper releases should include an Assets section:
 
 ![Asset Ripper Assets](docs/asset_ripper_assets.png)
 
-Download the relevant zip (such as **win_x64**) and extract it. Within those files should be a file named `AssetRipper.exe` which can be run.
+Download the relevant zip (such as **win_x64**) and extract it. Within those files should be a file named `AssetRipper.GUI.Free.exe` which can be run.
 
-Asset Ripper will look like this once opened:
+**NOTE**
+Cutscenes are currently in a transitional state that cannot be fully parsed. If you wanted to attempt to parse them, go to File > Settings > Script Export Format and change it to "Decompilation".
 
-<img src="docs/asset_ripper_opened.png" width="400" />
+Go to File > Open Folder and provide the Sun Haven folder.
+This folder should be what is opened when in Steam > Gear Icon > Manage > Browse local files.
 
-You can either drag-and-drop the game folder into this window or use File > Open Folder. The selected folder should be what is opened when in Steam > Gear Icon > Manage > Browse local files.
-
-**Leave all settings as default.** 
-
-Asset Ripper will take time to load all the game files, and then put them in a semi-browsable state.
-
-In the menu bar, select Export > Export all files. Make a note of the selected folder. **I would recommend creating a new folder for this purpose.**
-
-## DnSpy
-DnSpy can be found [here](https://github.com/dnSpy/dnSpy)
-
-Once dnSpy is open, go to File > Open and select `Sun Haven\Suh Haven_Data\Managed\SunHaven.Core.dll`
-
-File > Export to Project
-
-Pick any folder to export this, but keep the location in mind as you will need it later.
+It will take a while to load. Then select Export > Export All Files. Make a note of the selected folder. **I would recommend creating a new folder for this purpose.**
 
 # Running
 
@@ -77,7 +64,7 @@ For this to run you must be inside the project folder. The easiest way to get th
 
 Once all of the above has been completed, the program can be run with:
 ```bash
-poetry run python .\run_parser
+poetry run python .\run_parser.py
 ```
 
 You should begin receiving prompts for the directories created earlier. To get the path of the directories, on Windows 11 you can press Ctrl+Shift+C to copy the path (or right-click > Copy as path).
